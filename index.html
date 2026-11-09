@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Kayak Fishing Planner</title>
+  <meta name="description" content="Wind, waves, chop and fish forecasts for kayak fishing at Sea Point, False Bay and Simon's Town." />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛶</text></svg>" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="top">
+    <div class="wrap top-inner">
+      <div>
+        <h1>🛶 Kayak Fishing Planner</h1>
+        <p class="sub">Cape Town · Atlantic Seaboard · False Bay</p>
+      </div>
+      <div class="top-actions">
+        <span id="updated" class="muted small"></span>
+        <button id="refresh" class="btn">Refresh</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section id="status" class="status" hidden></section>
+
+    <section id="best" class="best" hidden></section>
+
+    <section class="card">
+      <div class="card-head">
+        <h2>This week at a glance</h2>
+        <p class="muted small">Tap a day to see the detail. The score combines kayak safety (60%) and fishing (40%).</p>
+      </div>
+      <div class="table-scroll">
+        <table id="overview" class="overview"></table>
+      </div>
+      <div class="legend small">
+        <span><i class="dot great"></i>Go (75+)</span>
+        <span><i class="dot good"></i>Good (60–74)</span>
+        <span><i class="dot marginal"></i>Marginal (45–59)</span>
+        <span><i class="dot bad"></i>Stay on land</span>
+      </div>
+    </section>
+
+    <section id="detail" class="detail"></section>
+
+    <section class="grid-2">
+      <div class="card">
+        <div class="card-head"><h2>Spots</h2><p class="muted small">Circles are launch spots, coloured by the selected day's score. ⛔ = no-go area.</p></div>
+        <div id="map" class="map"></div>
+      </div>
+      <div class="card safety">
+        <div class="card-head"><h2>Before you launch</h2></div>
+        <ul>
+          <li>Wear a PFD and a leash. Carry a VHF radio or a phone in a dry bag, plus a whistle.</li>
+          <li>Tell someone ashore your launch spot and when you'll be back. Paddle together.</li>
+          <li>You need a valid <b>DFFE recreational angling permit</b> (sold at the Post Office). Check current bag and size limits before you go.</li>
+          <li>Respect MPA no-take zones, and check the Shark Spotters status in False Bay.</li>
+          <li>Offshore wind is the big killer. If the wind blows off the land, stay close or stay home.</li>
+          <li>Forecasts are model data and can be wrong. Look at the water yourself before you launch.</li>
+        </ul>
+      </div>
+    </section>
+  </main>
+
+  <footer class="wrap foot muted small">
+    Weather and marine data: <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> (CC BY 4.0).
+    Moon: <a href="https://github.com/mourner/suncalc" target="_blank" rel="noopener">SunCalc</a>.
+    Charts: <a href="https://www.chartjs.org/" target="_blank" rel="noopener">Chart.js</a>.
+    Map: <a href="https://leafletjs.com/" target="_blank" rel="noopener">Leaflet</a> © OpenStreetMap contributors.
+    Tide times are estimated from modelled sea level, so use them as a guide and not for navigation.
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/suncalc@1.9.0/suncalc.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="js/spots.js"></script>
+  <script src="js/engine.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
