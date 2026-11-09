@@ -330,3 +330,12 @@ details summary { cursor: pointer; color: var(--accent); font-weight: 600; font-
 }
 .brand-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 @media (max-width: 520px) { .brand-name { font-size: .95rem; } .brand img { width: 30px; height: 30px; } }
+
+/* Spot names in the weekly grid: never spill into the day tiles */
+.overview th.spot { overflow-wrap: anywhere; hyphens: auto; }
+.overview th.spot span.nm-full, .overview th.spot span.nm-short { display: inline; font: inherit; color: inherit; line-height: inherit; }
+.overview th.spot span.nm-short { display: none; }
+@media (max-width: 520px) {
+  .overview th.spot span.nm-full { display: none; }
+  .overview th.spot span.nm-short { display: inline; }
+}

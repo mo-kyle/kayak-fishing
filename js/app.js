@@ -209,8 +209,10 @@ function renderOverview() {
     return `<tr class="group"><th colspan="${dates.length + 1}" scope="colgroup"><span>${area}</span></th></tr>`;
   };
   // Area is in the heading row, so under the name show only the detail in brackets (e.g. "west", "lagoon").
+  // Long single-word names get a short form on phones (e.g. Melkbosstrand -> Melkbos).
+  const spotName = (sp) => (sp.short ? `<span class="nm-full">${sp.name}</span><span class="nm-short">${sp.short}</span>` : sp.name);
   const spotSub = (sp) => { const m = sp.side.match(/\((.+)\)/); return m ? `<span>${m[1]}</span>` : ''; };
-  const rows = results.map((r) => groupRow(r) + `<tr><th class="spot">${r.spot.name}${spotSub(r.spot)}</th>${dates.map((dt) => {
+  const rows = results.map((r) => groupRow(r) + `<tr><th class="spot">${spotName(r.spot)}${spotSub(r.spot)}</th>${dates.map((dt) => {
     const d = r.days.find((x) => x.date === dt);
     if (!d) return '<td></td>';
     const sel = r.spot.id === state.spotId && dt === state.date ? ' sel' : '';

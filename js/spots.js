@@ -134,6 +134,7 @@ const SPOTS = [
   {
     id: 'melkbos',
     name: 'Melkbosstrand',
+    short: 'Melkbos', // used in the weekly grid on phones
     side: 'West Coast',
     lat: -33.7265, lon: 18.4395,
     marineLat: -33.73, marineLon: 18.42,
@@ -157,6 +158,7 @@ const SPOTS = [
   {
     id: 'blouberg',
     name: 'Bloubergstrand',
+    short: 'Blouberg', // used in the weekly grid on phones
     side: 'West Coast',
     lat: -33.7950, lon: 18.4590,
     marineLat: -33.80, marineLon: 18.43,
