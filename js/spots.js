@@ -207,6 +207,34 @@ const SPOTS = [
       { id: 'maasbanker', present: months(10, 4), peak: months(12, 3), abundance: 0.8 },
     ],
   },
+  {
+    id: 'capepoint',
+    name: 'Cape Point',
+    side: 'Cape Point reserve (False Bay side)',
+    lat: -34.3190, lon: 18.4630,
+    marineLat: -34.32, marineLon: 18.48,
+    facing: 85,
+    launch: 'Buffels Bay, inside the Cape of Good Hope section of the national park',
+    // Approximate SANParks gate times: summer ~06:00–18:00, winter ~07:00–17:00. Check before you go.
+    access: (month) => (month >= 10 || month <= 3 ? { open: 7, close: 18 } : { open: 8, close: 17 }),
+    notes: [
+      'You launch inside the national park, so you pay the gate fee and keep to gate hours. There is no first-light launch here. The app only suggests windows that start about an hour after the gates open (to allow for the drive in) and end before they close.',
+      'Buffels Bay faces east into False Bay, so it is sheltered from the Atlantic swell and from north-westerlies. Those blow <b>offshore</b> here, though.',
+      'The south-easter hits Cape Point harder than almost anywhere else on the peninsula, and the weather can turn quickly. Currents run strong towards the point itself, so stay inside the bay unless it is dead calm. This is a spot for experienced paddlers.',
+      'There are MPA restricted (no-take) zones along this coast. Check the SANParks zone map before you fish. Watch out for baboons at the car park, and don\'t leave food in the car.',
+    ],
+    fish: [
+      { id: 'yellowtail', present: months(10, 5), peak: months(11, 4), abundance: 1 },
+      { id: 'snoek', present: months(5, 9), peak: months(6, 8), abundance: 0.8 },
+      { id: 'hottentot', present: ALL_YEAR, peak: ALL_YEAR, abundance: 1 },
+      { id: 'redRoman', present: ALL_YEAR, peak: months(10, 4), abundance: 0.9 },
+      { id: 'panga', present: ALL_YEAR, peak: ALL_YEAR, abundance: 0.7 },
+      { id: 'smoothhound', present: ALL_YEAR, peak: months(10, 3), abundance: 0.5 },
+      { id: 'kob', present: months(11, 3), peak: months(12, 2), abundance: 0.3 },
+      { id: 'chokka', present: months(10, 3), peak: months(11, 1), abundance: 0.35 },
+      { id: 'maasbanker', present: months(10, 4), peak: months(12, 3), abundance: 0.7 },
+    ],
+  },
   // ---------------- False Bay, east side ----------------
   {
     id: 'falsebay',

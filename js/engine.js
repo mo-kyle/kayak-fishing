@@ -253,8 +253,13 @@ function analyseDay(spot, date, dh, prev, sunrise, sunset, uv, tides) {
   const nh = nowHour();
   const daylight = dh.filter((h) => h.hour >= Math.floor(sr) && h.hour < Math.ceil(ss));
   let cand = isToday ? daylight.filter((h) => h.hour >= nh) : daylight;
+  // Spots with gate hours (e.g. Cape Point reserve): only suggest windows you can actually use.
+  const access = spot.access ? spot.access(parseInt(date.slice(5, 7), 10)) : null;
+  const inAccess = (h) => !access || (h.hour >= access.open && h.hour + 1 <= access.close);
+  const accessible = daylight.filter(inAccess);
+  cand = cand.filter(inAccess);
   const dayOver = isToday && cand.length < 2;
-  if (dayOver) cand = daylight;
+  if (dayOver) cand = accessible.length ? accessible : daylight;
 
   // Best 3-hour paddling window (rewards a good average AND no single bad hour).
   const W = 3;
@@ -328,6 +333,7 @@ function analyseDay(spot, date, dh, prev, sunrise, sunset, uv, tides) {
   if (stats.thunder) overall = Math.min(overall, 20);
 
   const reasons = buildReasons(spot, stats, best, moon, species, tideInWindow, dayTides);
+  if (access) reasons.unshift({ type: 'ok', text: `Park gates: you're on the water about ${fmtHM(access.open)} at the earliest and must be off by ${fmtHM(access.close)} (approximate times, check SANParks)` });
 
   return { date, isToday, dayOver, hours: dh, daylight, best, stats, moon, species, tides: dayTides, tideInWindow, kayak, fishing, overall, reasons, verdict: verdictFor(overall) };
 }
