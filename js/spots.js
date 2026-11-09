@@ -210,7 +210,7 @@ const SPOTS = [
   {
     id: 'capepoint',
     name: 'Cape Point',
-    side: 'Cape Point reserve (False Bay side)',
+    side: 'False Bay (Buffels Bay)',
     lat: -34.3190, lon: 18.4630,
     marineLat: -34.32, marineLon: 18.48,
     facing: 85,
