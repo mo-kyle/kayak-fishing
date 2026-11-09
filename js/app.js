@@ -303,21 +303,4 @@ function renderMap() {
 }
 
 $('#refresh').addEventListener('click', () => load(true));
-
-// ---------- Frutiger Aero toggle ----------
-function syncSkinButton() {
-  const on = document.documentElement.dataset.skin === 'aero';
-  const b = $('#skin');
-  b.setAttribute('aria-pressed', String(on));
-  b.textContent = on ? '🌙 Classic' : '✨ Aero';
-}
-$('#skin').addEventListener('click', () => {
-  const root = document.documentElement;
-  const on = root.dataset.skin !== 'aero';
-  if (on) root.dataset.skin = 'aero'; else delete root.dataset.skin;
-  try { localStorage.setItem('kf:skin', on ? 'aero' : 'classic'); } catch (_) { /* ignore */ }
-  syncSkinButton();
-  if (Object.keys(state.results).length) render(); // chart + map colours come from CSS variables
-});
-syncSkinButton();
 load();
