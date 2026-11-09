@@ -99,7 +99,9 @@ function marineUrl(s) {
 
 async function loadSpot(spot, force) {
   const [w, m] = await Promise.all([getJSON(weatherUrl(spot), force), getJSON(marineUrl(spot), force)]);
-  return analyseSpot(spot, w, m);
+  const res = analyseSpot(spot, w, m);
+  res.raw = { w, m }; // kept so the UI can re-score for a different time range without refetching
+  return res;
 }
 
 // ---------- per-hour conditions ----------
@@ -230,7 +232,8 @@ function moonInfo(date) {
 }
 
 // ---------- day analysis ----------
-function analyseSpot(spot, w, m) {
+/** opts.start / opts.end = hours (0–24) you're available; the window must fit inside them. */
+function analyseSpot(spot, w, m, opts = {}) {
   const hours = buildHours(w, m);
   hours.forEach((h) => { h.chop = chopIndex(h); h.offshore = isOffshore(spot, h.windDir); h.score = kayakScore(spot, h); });
   const tides = findTides(hours);
@@ -242,24 +245,32 @@ function analyseSpot(spot, w, m) {
     const dh = hours.filter((h) => h.date === date);
     if (dh.length < 20) return;
     const prev = di > 0 ? hours.filter((h) => h.date === D.time[di - 1]) : [];
-    days.push(analyseDay(spot, date, dh, prev, D.sunrise[di], D.sunset[di], D.uv_index_max?.[di], tides.filter((t) => t.date === date)));
+    days.push(analyseDay(spot, date, dh, prev, D.sunrise[di], D.sunset[di], D.uv_index_max?.[di], tides.filter((t) => t.date === date), opts));
   });
   return { spot, hours, days, tides, fetchedAt: Date.now() };
 }
 
-function analyseDay(spot, date, dh, prev, sunrise, sunset, uv, tides) {
+function analyseDay(spot, date, dh, prev, sunrise, sunset, uv, tides, opts = {}) {
   const sr = decHour(sunrise), ss = decHour(sunset);
   const isToday = date === todayStr();
   const nh = nowHour();
-  const daylight = dh.filter((h) => h.hour >= Math.floor(sr) && h.hour < Math.ceil(ss));
+  // The user's available hours (default: all day). Day figures and the best window only use these.
+  const uStart = opts.start ?? 0, uEnd = opts.end ?? 24;
+  const inUser = (h) => h.hour >= uStart && h.hour + 1 <= uEnd;
+  const fullDaylight = dh.filter((h) => h.hour >= Math.floor(sr) && h.hour < Math.ceil(ss));
+  let daylight = fullDaylight.filter(inUser);
+  const outsideDaylight = daylight.length === 0;
+  if (outsideDaylight) daylight = dh.filter(inUser);
   let cand = isToday ? daylight.filter((h) => h.hour >= nh) : daylight;
   // Spots with gate hours (e.g. Cape Point reserve): only suggest windows you can actually use.
   const access = spot.access ? spot.access(parseInt(date.slice(5, 7), 10)) : null;
   const inAccess = (h) => !access || (h.hour >= access.open && h.hour + 1 <= access.close);
   const accessible = daylight.filter(inAccess);
+  const gatesClosed = !!access && accessible.length === 0;
   cand = cand.filter(inAccess);
   const dayOver = isToday && cand.length < 2;
   if (dayOver) cand = accessible.length ? accessible : daylight;
+  if (!cand.length) cand = daylight;
 
   // Best 3-hour paddling window (rewards a good average AND no single bad hour).
   const W = 3;
@@ -331,9 +342,12 @@ function analyseDay(spot, date, dh, prev, sunrise, sunset, uv, tides) {
   let overall = Math.round(0.6 * kayak + 0.4 * fishing);
   if (kayak < 45) overall = Math.min(overall, kayak + 5);
   if (stats.thunder) overall = Math.min(overall, 20);
+  if (outsideDaylight || gatesClosed) overall = Math.min(overall, 20);
 
   const reasons = buildReasons(spot, stats, best, moon, species, tideInWindow, dayTides);
-  if (access) reasons.unshift({ type: 'ok', text: `Park gates: you're on the water about ${fmtHM(access.open)} at the earliest and must be off by ${fmtHM(access.close)} (approximate times, check SANParks)` });
+  if (gatesClosed) reasons.unshift({ type: 'bad', text: `The park gates are closed during your hours (${fmtHM(uStart)}–${fmtHM(uEnd)}), so you can't launch here then` });
+  if (outsideDaylight) reasons.unshift({ type: 'bad', text: `Your hours (${fmtHM(uStart)}–${fmtHM(uEnd)}) are in the dark. Paddling at night isn't recommended.` });
+  if (access && !gatesClosed) reasons.unshift({ type: 'ok', text: `Park gates: you're on the water about ${fmtHM(access.open)} at the earliest and must be off by ${fmtHM(access.close)} (approximate times, check SANParks)` });
 
   return { date, isToday, dayOver, hours: dh, daylight, best, stats, moon, species, tides: dayTides, tideInWindow, kayak, fishing, overall, reasons, verdict: verdictFor(overall) };
 }
@@ -391,4 +405,4 @@ function buildReasons(spot, s, best, moon, species, tideInWindow, dayTides) {
   return R;
 }
 
-window.Engine = { loadSpot, fmtHM, compass, windName, chopLabel, todayStr, nowHour, verdictFor };
+window.Engine = { loadSpot, analyseSpot, fmtHM, compass, windName, chopLabel, todayStr, nowHour, verdictFor };

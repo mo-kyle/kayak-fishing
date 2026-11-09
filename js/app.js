@@ -2,7 +2,8 @@
 // fmtHM, compass, windName, chopLabel come from engine.js (shared global scope).
 const $ = (s) => document.querySelector(s);
 
-const state = { results: {}, spotId: SPOTS[0].id, date: null };
+// filter: from/to = 'YYYY-MM-DD' or null (= first/last forecast day); start/end = hour 0–24 or null (= sunrise/sunset)
+const state = { results: {}, raw: {}, spotId: SPOTS[0].id, date: null, filter: { from: null, to: null, start: null, end: null } };
 let chart = null;
 let map = null;
 
@@ -25,7 +26,7 @@ async function load(force = false) {
   const settled = await Promise.allSettled(SPOTS.map((s) => Engine.loadSpot(s, force)));
   const errors = [];
   settled.forEach((r, i) => {
-    if (r.status === 'fulfilled') state.results[SPOTS[i].id] = r.value;
+    if (r.status === 'fulfilled') { state.results[SPOTS[i].id] = r.value; state.raw[SPOTS[i].id] = r.value.raw; }
     else errors.push(`${SPOTS[i].name}: ${r.reason.message}`);
   });
   btn.disabled = false;
@@ -35,10 +36,114 @@ async function load(force = false) {
   }
   errors.length ? showStatus(`Some spots failed to load: ${errors.join('; ')}`, true) : hideStatus();
   if (!state.results[state.spotId]) state.spotId = Object.keys(state.results)[0];
-  const days = state.results[state.spotId].days;
-  if (!state.date || !days.find((d) => d.date === state.date)) state.date = days[0]?.date;
   $('#updated').textContent = `Updated ${new Date().toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' })}`;
+  applyFilter();
+}
+
+// ---------- trip filter (dates + hours you're free) ----------
+const HH = (h) => `${String(h).padStart(2, '0')}:00`;
+const allDates = () => (Object.values(state.results)[0]?.days || []).map((d) => d.date);
+const inDates = (date) => (!state.filter.from || date >= state.filter.from) && (!state.filter.to || date <= state.filter.to);
+const visibleDays = (r) => r.days.filter((d) => inDates(d.date));
+const filterActive = () => Object.values(state.filter).some((v) => v != null);
+const weekday = (date) => new Date(`${date}T12:00:00Z`).getUTCDay();
+
+function normaliseFilter() {
+  const f = state.filter, dates = allDates();
+  if (f.from && !dates.includes(f.from)) f.from = null;
+  if (f.to && !dates.includes(f.to)) f.to = null;
+  if (f.from && f.to && f.from > f.to) [f.from, f.to] = [f.to, f.from];
+  if (f.start != null && f.end != null && f.end <= f.start) f.end = Math.min(24, f.start + 1);
+}
+
+/** Re-score every spot for the chosen hours (no refetch), then redraw. */
+function applyFilter() {
+  normaliseFilter();
+  const opts = {};
+  if (state.filter.start != null) opts.start = state.filter.start;
+  if (state.filter.end != null) opts.end = state.filter.end;
+  SPOTS.forEach((s) => {
+    const raw = state.raw[s.id];
+    if (raw) state.results[s.id] = Object.assign(Engine.analyseSpot(s, raw.w, raw.m, opts), { raw });
+  });
+  const days = visibleDays(state.results[state.spotId]);
+  if (!state.date || !days.find((d) => d.date === state.date)) state.date = days[0]?.date;
+  writeURL();
   render();
+}
+
+function readURL() {
+  const p = new URLSearchParams(location.search);
+  const date = (k) => (/^\d{4}-\d{2}-\d{2}$/.test(p.get(k) || '') ? p.get(k) : null);
+  const hour = (k) => { const n = parseInt(p.get(k), 10); return Number.isInteger(n) && n >= 0 && n <= 24 ? n : null; };
+  state.filter = { from: date('from'), to: date('to'), start: hour('start'), end: hour('end') };
+}
+function writeURL() {
+  const p = new URLSearchParams();
+  Object.entries(state.filter).forEach(([k, v]) => { if (v != null) p.set(k, v); });
+  const qs = p.toString();
+  try { history.replaceState(null, '', qs ? `?${qs}` : location.pathname); } catch (_) { /* ignore */ }
+}
+
+function renderFilter() {
+  const f = state.filter, dates = allDates();
+  const dateLabel = (d, i) => (i === 0 && d === Engine.todayStr() ? `Today, ${fmtDay(d, { day: 'numeric', month: 'short' })}` : fmtDay(d));
+  const opt = (v, label, sel) => `<option value="${v}"${sel ? ' selected' : ''}>${label}</option>`;
+  const from = f.from || dates[0], to = f.to || dates.at(-1);
+  $('#fFrom').innerHTML = dates.map((d, i) => opt(d, dateLabel(d, i), d === from)).join('');
+  $('#fTo').innerHTML = dates.map((d, i) => opt(d, dateLabel(d, i), d === to)).join('');
+  const hours = Array.from({ length: 19 }, (_, i) => i + 4); // 04:00 … 22:00
+  $('#fStart').innerHTML = opt('', 'Sunrise', f.start == null) + hours.slice(0, -1).map((h) => opt(h, HH(h), h === f.start)).join('');
+  $('#fEnd').innerHTML = opt('', 'Sunset', f.end == null) + hours.slice(1).map((h) => opt(h, HH(h), h === f.end)).join('');
+
+  const n = dates.filter(inDates).length;
+  const range = from === to ? fmtDay(from, { weekday: 'long', day: 'numeric', month: 'short' }) : `${fmtDay(from)} – ${fmtDay(to)}`;
+  const hrs = f.start == null && f.end == null ? 'sunrise to sunset' : `${f.start == null ? 'sunrise' : HH(f.start)} to ${f.end == null ? 'sunset' : HH(f.end)}`;
+  $('#tripNote').textContent = `Showing ${range} (${n} day${n === 1 ? '' : 's'}), ${hrs}.`;
+  document.querySelectorAll('.chip[data-preset]').forEach((b) => b.classList.toggle('on', b.dataset.preset === presetMatch()));
+}
+
+function presetMatch() {
+  const f = state.filter;
+  if (!filterActive()) return 'all';
+  if (f.start === 5 && f.end === 10 && !f.from && !f.to) return 'morning';
+  if (f.start === 16 && f.end === 20 && !f.from && !f.to) return 'evening';
+  return null;
+}
+
+function applyPreset(name) {
+  const dates = allDates();
+  if (name === 'all') state.filter = { from: null, to: null, start: null, end: null };
+  if (name === 'morning') Object.assign(state.filter, { from: null, to: null, start: 5, end: 10 });
+  if (name === 'evening') Object.assign(state.filter, { from: null, to: null, start: 16, end: 20 });
+  if (name === 'weekend') {
+    const i = dates.findIndex((d) => [0, 6].includes(weekday(d)));
+    if (i === -1) { $('#tripNote').textContent = 'No weekend days in the 7-day forecast yet.'; return; }
+    const sat = weekday(dates[i]) === 6;
+    Object.assign(state.filter, { from: dates[i], to: sat && dates[i + 1] ? dates[i + 1] : dates[i] });
+  }
+  applyFilter();
+}
+
+async function shareLink() {
+  writeURL();
+  const url = location.href;
+  const text = filterActive() ? `Kayak fishing forecast: ${$('#tripNote').textContent.replace(/^Showing /, '')}` : 'Kayak fishing forecast for the week';
+  try {
+    if (navigator.share) { await navigator.share({ title: 'Kayak Fishing Planner', text, url }); return; }
+    await navigator.clipboard.writeText(url);
+    $('#tripNote').textContent = 'Link copied. Paste it into WhatsApp and it opens with these dates and hours.';
+  } catch (_) { /* share sheet closed, or clipboard blocked */ }
+}
+
+function wireFilter() {
+  const num = (v) => (v === '' ? null : parseInt(v, 10));
+  $('#fFrom').addEventListener('change', (e) => { state.filter.from = e.target.value; if (state.filter.to && state.filter.to < e.target.value) state.filter.to = e.target.value; applyFilter(); });
+  $('#fTo').addEventListener('change', (e) => { state.filter.to = e.target.value; if (state.filter.from && state.filter.from > e.target.value) state.filter.from = e.target.value; applyFilter(); });
+  $('#fStart').addEventListener('change', (e) => { state.filter.start = num(e.target.value); applyFilter(); });
+  $('#fEnd').addEventListener('change', (e) => { state.filter.end = num(e.target.value); applyFilter(); });
+  document.querySelectorAll('.chip[data-preset]').forEach((b) => b.addEventListener('click', () => applyPreset(b.dataset.preset)));
+  $('#share').addEventListener('click', shareLink);
 }
 
 function showStatus(msg, err) { const el = $('#status'); el.hidden = false; el.textContent = msg; el.classList.toggle('error', !!err); }
@@ -52,6 +157,7 @@ function select(spotId, date, scroll) {
 }
 
 function render() {
+  renderFilter();
   renderBest();
   renderOverview();
   renderDetail();
@@ -62,14 +168,17 @@ function render() {
 function renderBest() {
   const el = $('#best');
   const all = [];
-  Object.values(state.results).forEach((r) => r.days.forEach((d) => { if (!d.dayOver) all.push({ spot: r.spot, day: d }); }));
+  Object.values(state.results).forEach((r) => visibleDays(r).forEach((d) => { if (!d.dayOver) all.push({ spot: r.spot, day: d }); }));
   all.sort((a, b) => b.day.overall - a.day.overall);
   const top = all[0];
+  const scope = filterActive() ? 'in your time' : 'this week';
   el.hidden = false;
   if (!top || top.day.overall < 60) {
     el.className = 'best none';
     el.onclick = null;
-    el.innerHTML = `<div class="big">🌊</div><div><b>No standout days this week</b><p class="muted small">Nothing scores "Good" or better yet. Forecasts change, so check back in a day or two.</p></div>`;
+    el.innerHTML = filterActive()
+      ? `<div class="big">🌊</div><div><b>Nothing good in your time</b><p class="muted small">No spot scores "Good" or better on those days and hours. Try other days, wider hours, or check back as the forecast updates.</p></div>`
+      : `<div class="big">🌊</div><div><b>No standout days this week</b><p class="muted small">Nothing scores "Good" or better yet. Forecasts change, so check back in a day or two.</p></div>`;
     return;
   }
   const d = top.day;
@@ -77,7 +186,7 @@ function renderBest() {
   el.className = 'best';
   el.onclick = () => select(top.spot.id, d.date, true);
   el.innerHTML = `<div class="big">🎣</div><div>
-    <b>Best this week: ${top.spot.name}, ${d.isToday ? 'today' : fmtDay(d.date, { weekday: 'long', day: 'numeric', month: 'short' })}, <span class="nowrap">${fmtHM(d.best.start)}–${fmtHM(d.best.end)}</span></b>
+    <b>Best ${scope}: ${top.spot.name}, ${d.isToday ? 'today' : fmtDay(d.date, { weekday: 'long', day: 'numeric', month: 'short' })}, <span class="nowrap">${fmtHM(d.best.start)}–${fmtHM(d.best.end)}</span></b>
     <p class="small">Score ${d.overall}. Wind ${r0(d.stats.winWind)} kn, seas ${r1(d.stats.winWave)} m, water ${r1(d.stats.sst)} °C. ${d.species.filter((s) => s.likelihood >= 0.45).slice(0, 2).map((s) => s.name).join(' & ') || ''}</p>
     ${others.length ? `<p class="small muted">Also good: ${others.map((o) => `${o.spot.name} ${dayLabel(o.day)} (${o.day.overall})`).join(' · ')}</p>` : ''}
   </div>`;
@@ -86,8 +195,9 @@ function renderBest() {
 // ---------- overview grid ----------
 function renderOverview() {
   const results = SPOTS.map((s) => state.results[s.id]).filter(Boolean);
-  const dates = results[0].days.map((d) => d.date);
-  const head = `<tr><th></th>${dates.map((dt, i) => `<th>${i === 0 && results[0].days[0].isToday ? 'Today' : fmtDay(dt, { weekday: 'short' })}<br><span class="muted">${fmtDay(dt, { day: 'numeric', month: 'short' })}</span></th>`).join('')}</tr>`;
+  const dates = visibleDays(results[0]).map((d) => d.date);
+  $('#gridTitle').textContent = filterActive() ? 'Your days at a glance' : 'This week at a glance';
+  const head = `<tr><th></th>${dates.map((dt) => `<th>${dt === Engine.todayStr() ? 'Today' : fmtDay(dt, { weekday: 'short' })}<br><span class="muted">${fmtDay(dt, { day: 'numeric', month: 'short' })}</span></th>`).join('')}</tr>`;
   const rows = results.map((r) => `<tr><th class="spot">${r.spot.name}<span>${r.spot.side}</span></th>${dates.map((dt) => {
     const d = r.days.find((x) => x.date === dt);
     if (!d) return '<td></td>';
@@ -115,17 +225,18 @@ function ring(score, key) {
 function renderDetail() {
   const r = state.results[state.spotId];
   const spot = r.spot;
-  const d = r.days.find((x) => x.date === state.date) || r.days[0];
+  const days = visibleDays(r);
+  const d = days.find((x) => x.date === state.date) || days[0];
   const s = d.stats;
 
   const spotTabs = SPOTS.filter((x) => state.results[x.id]).map((x) => `<button class="tab${x.id === spot.id ? ' on' : ''}" data-spot="${x.id}">${x.name}</button>`).join('');
-  const dayTabs = r.days.map((x) => `<button class="tab${x.date === d.date ? ' on' : ''}" data-date="${x.date}">${dayLabel(x)} <span class="pill ${x.verdict.key}">${x.overall}</span></button>`).join('');
+  const dayTabs = days.map((x) => `<button class="tab${x.date === d.date ? ' on' : ''}" data-date="${x.date}">${dayLabel(x)} <span class="pill ${x.verdict.key}">${x.overall}</span></button>`).join('');
 
   const tideTxt = d.tides.length ? d.tides.map((t) => `${t.type} ${fmtHM(t.hour)}`).join(' · ') : 'n/a';
   const moonTxt = d.moon.nearest <= 0.75 ? 'Today' : d.moon.toFull < d.moon.toNew ? `Full in ${Math.round(d.moon.toFull)} d` : `New in ${Math.round(d.moon.toNew)} d`;
 
   const stats = [
-    ['Wind (daylight)', `${arrow(s.windDir)} ${r0(s.windAvg)} kn`, `${compass(s.windDir)} · max ${r0(s.windMax)} kn`],
+    [state.filter.start != null || state.filter.end != null ? 'Wind (your hours)' : 'Wind (daylight)',`${arrow(s.windDir)} ${r0(s.windAvg)} kn`, `${compass(s.windDir)} · max ${r0(s.windMax)} kn`],
     ['Gusts', `${r0(s.gustMax)} kn`, s.gustMax >= 25 ? '<span class="warn">Dangerous</span>' : s.gustMax >= 18 ? 'Strong' : 'Manageable'],
     ['Waves', `${r1(s.waveAvg)} m`, `max ${r1(s.waveMax)} m · ${r0(s.waveT)} s`],
     ['Swell', `${r1(s.swellH)} m`, `${compass(s.swellDir)} · ${r0(s.swellT)} s period`],
@@ -144,7 +255,9 @@ function renderDetail() {
     const night = h.hour < Math.floor(s.sunrise) || h.hour >= Math.ceil(s.sunset);
     const inWin = h.hour >= d.best.start && h.hour < d.best.end;
     const past = d.isToday && h.hour < nowH;
-    return `<tr class="${night || past ? 'night' : ''}${inWin ? ' inwin' : ''}">
+    const f = state.filter;
+    const busy = (f.start != null && h.hour < f.start) || (f.end != null && h.hour >= f.end); // outside your free hours
+    return `<tr class="${night || past || busy ? 'night' : ''}${inWin ? ' inwin' : ''}">
       <td class="tnum">${String(h.hour).padStart(2, '0')}:00${inWin ? ' ⭐' : ''}</td>
       <td class="tnum">${arrow(h.windDir)} ${r0(h.wind)} kn ${compass(h.windDir)}${h.offshore && h.wind > 8 ? ' <span class="warn" title="Offshore wind">⚠ offshore</span>' : ''}</td>
       <td class="tnum${h.gust >= 25 ? ' warn' : ''}">${r0(h.gust)}</td>
@@ -287,7 +400,7 @@ function renderMap() {
   }
   SPOTS.forEach((s) => {
     const r = state.results[s.id];
-    const d = r?.days.find((x) => x.date === state.date) || r?.days[0];
+    const d = r && (visibleDays(r).find((x) => x.date === state.date) || visibleDays(r)[0]);
     const color = d ? cssVar(`--${d.verdict.key}`) : '#888';
     const html = `<b>${s.name}</b><br>${d ? `${fmtDay(d.date)}: ${d.verdict.label} (${d.overall})<br>Best ${fmtHM(d.best.start)}–${fmtHM(d.best.end)}` : ''}<br><span style="color:#666">Launch: ${s.launch}</span>`;
     let mk = map._kfMarkers[s.id];
@@ -303,4 +416,6 @@ function renderMap() {
 }
 
 $('#refresh').addEventListener('click', () => load(true));
+readURL();
+wireFilter();
 load();

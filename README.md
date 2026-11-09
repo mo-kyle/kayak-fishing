@@ -14,6 +14,8 @@ For each spot and day it shows:
 - Sea temperature, air temperature, rain, fog, current
 - Estimated tides, moon phase and pressure trend
 - **Which fish are around** that month, ranked by season and today's water temperature, with methods and closed seasons
+- A **"When can you go?" filter**: pick the dates and hours you're free, and scores and best windows only use that time.
+  The filter is saved in the link (e.g. `?from=2026-11-12&to=2026-11-15&start=6&end=10`), so a shared link opens with the same dates and hours.
 - The **best 3-hour window** to be on the water, and a Go / Good / Marginal / Stay-on-land verdict
 
 ## Run it
