@@ -3,13 +3,19 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Kayak Fishing Planner</title>
-  <meta name="description" content="Wind, waves, chop and fish forecasts for kayak fishing at Sea Point, False Bay and Simon's Town." />
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛶</text></svg>" />
+  <title>YakCast: Cape kayak fishing forecast</title>
+  <meta name="description" content="Know when to launch, and what's biting. Wind, swell, chop and fish forecasts for 18 Cape kayak fishing spots." />
+  <meta name="theme-color" content="#1a86c2" />
+  <meta property="og:title" content="YakCast: Cape kayak fishing forecast" />
+  <meta property="og:description" content="Know when to launch, and what's biting. Wind, swell, chop and fish for 18 Cape kayak spots." />
+  <meta property="og:image" content="https://mo-kyle.github.io/kayak-fishing/assets/icon-512.png" />
+  <meta property="og:type" content="website" />
+  <link rel="icon" type="image/svg+xml" href="assets/logo.svg?v=14" />
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <link rel="stylesheet" href="styles.css?v=13" />
+  <link rel="stylesheet" href="styles.css?v=15" />
   <script>
     // Apply a saved light/dark choice before first paint (otherwise follow the device setting).
     try { var t = localStorage.getItem('kf:theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch (_) {}
@@ -18,9 +24,9 @@
 <body>
   <header class="top">
     <div class="wrap top-inner">
-      <div>
-        <h1><span class="logo" aria-hidden="true">🛶</span>Kayak Fishing Planner</h1>
-        <p class="sub">Cape Town · Atlantic Seaboard · False Bay</p>
+      <div class="brand">
+        <img src="assets/logo.svg?v=14" alt="" width="34" height="34" />
+        <span class="brand-name">YakCast</span>
       </div>
       <div class="top-actions">
         <span id="updated" class="muted small"></span>
@@ -29,6 +35,59 @@
       </div>
     </div>
   </header>
+
+  <section class="hero" aria-labelledby="hero-title">
+    <svg class="scene" viewBox="0 0 1440 240" preserveAspectRatio="xMaxYMax slice" aria-hidden="true" focusable="false">
+      <defs>
+        <linearGradient id="hero-sky" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="var(--sky-top)"/><stop offset="1" stop-color="var(--sky-bottom)"/>
+        </linearGradient>
+      </defs>
+      <rect width="1440" height="240" fill="url(#hero-sky)"/>
+      <g class="stars"><circle cx="470" cy="40" r="2.2"/><circle cx="530" cy="78" r="1.6"/><circle cx="610" cy="30" r="1.6"/><circle cx="690" cy="62" r="2.2"/><circle cx="760" cy="22" r="1.6"/><circle cx="850" cy="48" r="1.6"/><circle cx="930" cy="30" r="2.2"/><circle cx="1010" cy="64" r="1.6"/><circle cx="1090" cy="26" r="1.6"/><circle cx="1160" cy="52" r="2.2"/><circle cx="1340" cy="30" r="1.6"/><circle cx="1400" cy="66" r="1.6"/><circle cx="380" cy="64" r="2.2"/><circle cx="300" cy="34" r="1.6"/><circle cx="220" cy="70" r="1.6"/></g>
+      <circle class="sun" cx="1250" cy="60" r="30"/>
+      <!-- distant ranges + a flat-topped mountain -->
+      <path class="mountain-far" d="M300,160 L380,138 L450,146 L520,128 L600,142 L680,132 L760,146 L760,170 L300,170 Z"/>
+      <path class="mountain" d="M560,156 L606,124 Q620,110 634,122 L690,150 Z"/>
+      <path class="mountain" d="M650,158 L730,130 L790,110 L830,98 L1060,95 L1092,104 L1130,126 L1172,120 L1212,134 L1290,128 L1370,142 L1440,138 L1440,170 L650,170 Z"/>
+      <!-- gulls working over bait -->
+      <g class="birds" fill="none" stroke-width="2.4" stroke-linecap="round">
+        <path d="M1318,96 q6,-7 12,0 q6,-7 12,0"/>
+        <path d="M1352,74 q5,-6 10,0 q5,-6 10,0"/>
+        <path d="M1384,104 q4,-5 8,0 q4,-5 8,0"/>
+      </g>
+      <!-- sea: three layers drifting at different speeds -->
+      <g class="wave w-far"><path d="M0,150 q20,-4 40,0 t40,0 t40,0 t40,0 t40,0 t40,0 t40,0 t40,0 t40,0 t40,0 t40,0 t40,0 t40,0 t40,0 t40,0 t40,0 t40,0 t40,0 t40,0 t40,0 t40,0 t40,0 t40,0 t40,0 t40,0 t40,0 t40,0 t40,0 t40,0 t40,0 t40,0 t40,0 t40,0 t40,0 t40,0 t40,0 t40,0 t40,0 t40,0 t40,0 t40,0 t40,0 t40,0 t40,0 t40,0 t40,0 t40,0 t40,0 t40,0 t40,0 t40,0 t40,0 t40,0 t40,0 t40,0 t40,0 t40,0 t40,0 t40,0 t40,0 t40,0 t40,0 t40,0 t40,0 t40,0 t40,0 t40,0 t40,0 t40,0 t40,0 t40,0 t40,0 V240 H0 Z" fill="var(--sea-far)"/></g>
+      <g class="wave w-mid">
+        <path d="M0,170 q30,-7 60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 V240 H0 Z" fill="var(--sea-mid)"/>
+        <path d="M0,170 q30,-7 60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0" fill="none" stroke="var(--foam)" stroke-width="2" opacity=".55"/>
+      </g>
+      <!-- the angler, bobbing on the swell -->
+      <g transform="translate(1170 182)">
+        <g class="kayak">
+          <path d="M112,-96 Q128,-40 121,24" fill="none" stroke="var(--foam)" stroke-width="1.6" opacity=".95"/>
+          <path d="M18,-28 Q60,-80 112,-96" fill="none" stroke="var(--angler)" stroke-width="3.6" stroke-linecap="round"/>
+          <path d="M-14,0 L-10,-27 Q-1,-34 8,-28 L13,-14 L8,0 Z" fill="var(--angler)"/>
+          <path d="M5,-24 L21,-29" stroke="var(--angler)" stroke-width="5" stroke-linecap="round"/>
+          <circle cx="-1" cy="-40" r="8.5" fill="var(--angler)"/>
+          <path d="M-11,-43 Q-1,-56 9,-43 L14,-42 Z" fill="var(--kayak)"/>
+          <path d="M-58,-12 L-8,-4" stroke="var(--angler)" stroke-width="3" stroke-linecap="round"/>
+          <ellipse cx="-62" cy="-12.5" rx="9" ry="3.6" transform="rotate(9 -62 -12.5)" fill="var(--angler)"/>
+          <path d="M-84,0 Q0,17 90,-6 Q72,11 0,12 Q-60,11 -84,0 Z" fill="var(--kayak)"/>
+          <path d="M-76,2.5 Q0,14 82,-3.5" fill="none" stroke="var(--kayak-hi)" stroke-width="2.2" stroke-linecap="round"/>
+        </g>
+      </g>
+      <g class="wave w-near">
+        <path d="M0,196 q40,-9 80,0 t80,0 t80,0 t80,0 t80,0 t80,0 t80,0 t80,0 t80,0 t80,0 t80,0 t80,0 t80,0 t80,0 t80,0 t80,0 t80,0 t80,0 t80,0 t80,0 t80,0 t80,0 t80,0 t80,0 t80,0 t80,0 t80,0 t80,0 t80,0 t80,0 t80,0 t80,0 t80,0 t80,0 t80,0 t80,0 V240 H0 Z" fill="var(--sea-near)"/>
+        <path d="M0,196 q40,-9 80,0 t80,0 t80,0 t80,0 t80,0 t80,0 t80,0 t80,0 t80,0 t80,0 t80,0 t80,0 t80,0 t80,0 t80,0 t80,0 t80,0 t80,0 t80,0 t80,0 t80,0 t80,0 t80,0 t80,0 t80,0 t80,0 t80,0 t80,0 t80,0 t80,0 t80,0 t80,0 t80,0 t80,0 t80,0 t80,0" fill="none" stroke="var(--foam)" stroke-width="2.4" opacity=".8"/>
+      </g>
+    </svg>
+    <div class="wrap hero-text">
+      <h1 id="hero-title">YakCast</h1>
+      <p class="tagline">Know when to launch, and what's biting.</p>
+      <p class="hero-meta">Wind, swell, chop and fish for <span id="spotCount">18</span> Cape kayak spots, from Langebaan to Hermanus.</p>
+    </div>
+  </section>
 
   <main class="wrap">
     <section id="status" class="status" hidden></section>
@@ -104,8 +163,8 @@
   <script src="https://cdn.jsdelivr.net/npm/suncalc@1.9.0/suncalc.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="js/spots.js?v=13"></script>
-  <script src="js/engine.js?v=13"></script>
-  <script src="js/app.js?v=13"></script>
+  <script src="js/spots.js?v=14"></script>
+  <script src="js/engine.js?v=14"></script>
+  <script src="js/app.js?v=14"></script>
 </body>
 </html>

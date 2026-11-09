@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="YakCast logo">
+  <defs>
+    <linearGradient id="yc-sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3cc4f0"/>
+      <stop offset="1" stop-color="#1a86c2"/>
+    </linearGradient>
+    <linearGradient id="yc-sea" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0d6fa3"/>
+      <stop offset="1" stop-color="#073e5e"/>
+    </linearGradient>
+    <clipPath id="yc-clip"><rect width="64" height="64" rx="15"/></clipPath>
+  </defs>
+  <g clip-path="url(#yc-clip)">
+    <rect width="64" height="64" fill="url(#yc-sky)"/>
+    <!-- sun -->
+    <circle cx="47" cy="17" r="8" fill="#ffd166"/>
+    <!-- bent rod + line into the water -->
+    <path d="M30 30 Q42 14 55 9" fill="none" stroke="#0b2a3f" stroke-width="2.2" stroke-linecap="round"/>
+    <path d="M55 9 Q59 26 56 45" fill="none" stroke="#ffffff" stroke-width="1" stroke-linecap="round" opacity=".9"/>
+    <!-- angler -->
+    <circle cx="26" cy="25.5" r="3.6" fill="#0b2a3f"/>
+    <path d="M22 37 L23.5 29.5 Q26 28 29 29.5 L31 32 L29.5 37 Z" fill="#0b2a3f"/>
+    <!-- kayak hull -->
+    <path d="M7 36 Q31 43.5 57 34.5 Q53 41.5 33 42.5 Q15 42.5 7 36 Z" fill="#ff7a2f"/>
+    <path d="M10 37 Q31 42 54 35.5" fill="none" stroke="#ffb27a" stroke-width="1.2" stroke-linecap="round"/>
+    <!-- sea + foam -->
+    <path d="M0 44 Q8 40 16 44 T32 44 T48 44 T64 44 V64 H0 Z" fill="url(#yc-sea)"/>
+    <path d="M0 44 Q8 40 16 44 T32 44 T48 44 T64 44" fill="none" stroke="#e9f8ff" stroke-width="2.2" stroke-linecap="round"/>
+    <path d="M-4 53 Q4 49.5 12 53 T28 53 T44 53 T60 53 T76 53" fill="none" stroke="#7fd0f2" stroke-width="1.6" stroke-linecap="round" opacity=".7"/>
+  </g>
+</svg>

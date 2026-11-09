@@ -1,4 +1,8 @@
-# 🛶 Kayak Fishing Planner: Cape Town
+# 🛶 YakCast
+
+**Know when to launch, and what's biting.** A kayak fishing forecast for the Cape.
+
+Live at https://mo-kyle.github.io/kayak-fishing/
 
 A 7-day planner for kayak fishing around Cape Town (18 spots):
 

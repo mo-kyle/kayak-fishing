@@ -244,3 +244,87 @@ details summary { cursor: pointer; color: var(--accent); font-weight: 600; font-
   position: sticky; left: 0; display: inline-block;
   font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--accent);
 }
+
+/* =====================================================================
+   YakCast brand + hero scene
+   ===================================================================== */
+:root {
+  --sky-top: #8fd1ef; --sky-bottom: #e2f4fc; --hero-ink: #06304b; --hero-muted: #2b5a76;
+  --sea-far: #8ccdea; --sea-mid: #3ba3d3; --sea-near: #0d6fa3; --foam: #ffffff;
+  --mountain: #a6c8da; --mountain-far: #c6e0ec; --sun: #ffd166;
+  --kayak: #ff7a2f; --kayak-hi: #ffb27a; --angler: #0b2a3f; --bird: #36586d; --stars: 0;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --sky-top: #050f19; --sky-bottom: #17344d; --hero-ink: #eaf4fa; --hero-muted: #9ab7c9;
+    --sea-far: #1a4964; --sea-mid: #14587b; --sea-near: #0b3a55; --foam: #8fcbe8;
+    --mountain: #1c3a4f; --mountain-far: #152f43; --sun: #e6edf2;
+    --kayak: #ff8a3d; --kayak-hi: #ffb27a; --angler: #02070b; --bird: #9ab7c9; --stars: .85;
+  }
+}
+:root[data-theme="dark"] {
+  --sky-top: #050f19; --sky-bottom: #17344d; --hero-ink: #eaf4fa; --hero-muted: #9ab7c9;
+  --sea-far: #1a4964; --sea-mid: #14587b; --sea-near: #0b3a55; --foam: #8fcbe8;
+  --mountain: #1c3a4f; --mountain-far: #152f43; --sun: #e6edf2;
+  --kayak: #ff8a3d; --kayak-hi: #ffb27a; --angler: #02070b; --bird: #9ab7c9; --stars: .85;
+}
+
+.brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.brand img { display: block; border-radius: 9px; box-shadow: 0 1px 3px rgba(0, 40, 70, .25); }
+.brand-name { font-weight: 800; font-size: 1.25rem; letter-spacing: -.02em; }
+
+.hero {
+  position: relative; height: 230px; overflow: hidden; isolation: isolate;
+  background: var(--sky-top); border-bottom: 1px solid var(--border);
+}
+.hero .scene { position: absolute; inset: 0; width: 100%; height: 100%; z-index: -1; display: block; }
+.hero-text { position: relative; padding-top: 26px; }
+.hero h1 { font-size: 2.4rem; font-weight: 800; letter-spacing: -.03em; color: var(--hero-ink); }
+.tagline { margin: 2px 0 0; font-size: 1.15rem; font-weight: 600; color: var(--hero-ink); }
+.hero-meta { margin: 6px 0 0; font-size: .85rem; color: var(--hero-muted); max-width: 36ch; }
+
+.scene .sun { fill: var(--sun); }
+.scene .stars { fill: #ffffff; opacity: var(--stars); }
+.scene .mountain { fill: var(--mountain); }
+.scene .mountain-far { fill: var(--mountain-far); }
+.scene .birds { stroke: var(--bird); }
+
+/* Waves drift left forever (paths are 2x wide, so -1440 loops seamlessly) */
+.scene .wave { animation: yc-drift linear infinite; }
+.scene .w-far { animation-duration: 90s; }
+.scene .w-mid { animation-duration: 45s; }
+.scene .w-near { animation-duration: 24s; }
+@keyframes yc-drift { to { transform: translateX(-1440px); } }
+
+/* The kayak rides the swell */
+.scene .kayak { transform-box: fill-box; transform-origin: 40% 90%; animation: yc-bob 4.2s ease-in-out infinite; }
+@keyframes yc-bob {
+  0%, 100% { transform: translateY(0) rotate(-2.5deg); }
+  50% { transform: translateY(-7px) rotate(2deg); }
+}
+.scene .birds path { animation: yc-glide 7s ease-in-out infinite alternate; }
+.scene .birds path:nth-child(2) { animation-delay: -2s; }
+.scene .birds path:nth-child(3) { animation-delay: -4s; }
+@keyframes yc-glide { to { transform: translate(-14px, -6px); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .scene .wave, .scene .kayak, .scene .birds path { animation: none; }
+}
+@media (max-width: 520px) {
+  .hero { height: 210px; }
+  .hero-text { padding-top: 18px; }
+  .hero h1 { font-size: 1.9rem; }
+  .tagline { font-size: 1rem; }
+  .hero-meta { font-size: .78rem; max-width: 26ch; }
+  .brand-name { font-size: 1.1rem; }
+}
+/* Narrow screens: text gets its own band of sky, the scene sits underneath it (no overlap). */
+@media (max-width: 760px) {
+  .hero { height: auto; padding-bottom: 150px; }
+  .hero .scene { top: auto; bottom: 0; height: 160px; }
+  .hero-meta { max-width: none; }
+}
+@media (max-width: 520px) {
+  .hero { padding-bottom: 140px; }
+  .hero .scene { height: 150px; }
+}
