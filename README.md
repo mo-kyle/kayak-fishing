@@ -1,4 +1,4 @@
-# 🛶 YakCast
+# 🛶 Kayak Fishing Planner
 
 **Know when to launch, and what's biting.** A kayak fishing forecast for the Cape.
 

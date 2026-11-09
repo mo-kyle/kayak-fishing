@@ -130,9 +130,9 @@ function applyPreset(name) {
 async function shareLink() {
   writeURL();
   const url = location.href;
-  const text = filterActive() ? `YakCast forecast: ${$('#tripNote').textContent.replace(/^Showing /, '')}` : 'YakCast: kayak fishing forecast for the week';
+  const text = filterActive() ? `Kayak fishing forecast: ${$('#tripNote').textContent.replace(/^Showing /, '')}` : 'Kayak fishing forecast for the week';
   try {
-    if (navigator.share) { await navigator.share({ title: 'YakCast', text, url }); return; }
+    if (navigator.share) { await navigator.share({ title: 'Kayak Fishing Planner', text, url }); return; }
     await navigator.clipboard.writeText(url);
     $('#tripNote').textContent = 'Link copied. Paste it into WhatsApp and it opens with these dates and hours.';
   } catch (_) { /* share sheet closed, or clipboard blocked */ }
@@ -456,9 +456,9 @@ load();
 // ---------- branding ----------
 $('#spotCount').textContent = SPOTS.length;
 
-// Animated tab title: a kayak paddling along through the waves, e.g. "🌊🌊🛶🌊 YakCast".
+// Animated tab title: a kayak paddling along through the waves, e.g. "🌊🌊🛶🌊 Kayak Fishing Planner".
 (function animateTitle() {
-  const NAME = 'YakCast';
+  const NAME = 'Kayak Fishing Planner';
   const TRACK = 4; // number of wave slots the kayak travels through
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) { document.title = `🛶 ${NAME}`; return; }
   let step = 0;

@@ -246,7 +246,7 @@ details summary { cursor: pointer; color: var(--accent); font-weight: 600; font-
 }
 
 /* =====================================================================
-   YakCast brand + hero scene
+   Brand + hero scene
    ===================================================================== */
 :root {
   --sky-top: #8fd1ef; --sky-bottom: #e2f4fc; --hero-ink: #06304b; --hero-muted: #2b5a76;
@@ -328,3 +328,5 @@ details summary { cursor: pointer; color: var(--accent); font-weight: 600; font-
   .hero { padding-bottom: 140px; }
   .hero .scene { height: 150px; }
 }
+.brand-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 520px) { .brand-name { font-size: .95rem; } .brand img { width: 30px; height: 30px; } }
