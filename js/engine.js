@@ -228,7 +228,8 @@ function moonInfo(date) {
   const sinceNew = phase * LUNAR;
   const nearest = Math.min(toFull, toNew, sinceFull, sinceNew);
   const emoji = ['🌑', '🌒', '🌓', '🌔', '🌕', '🌖', '🌗', '🌘'][Math.round(phase * 8) % 8];
-  return { phase, fraction, name, emoji, toFull, toNew, nearest, spring: nearest <= 2.5 };
+  const nearNew = Math.min(toNew, sinceNew) < Math.min(toFull, sinceFull); // closest phase, looking both ways
+  return { phase, fraction, name, emoji, toFull, toNew, nearest, nearNew, spring: nearest <= 2.5 };
 }
 
 // ---------- day analysis ----------
@@ -394,7 +395,7 @@ function buildReasons(spot, s, best, moon, species, tideInWindow, dayTides) {
     if (s.sstChange != null && s.sstChange < -1.5) add('ok', `Water dropped ${Math.abs(s.sstChange).toFixed(1)} °C to ${s.sst.toFixed(1)} °C (upwelling). The bite may be slow.`);
     else add('fish', `Sea temperature ${s.sst.toFixed(1)} °C`);
   }
-  if (moon.nearest <= 2.5) add('fish', `${moon.toNew < moon.toFull ? 'New' : 'Full'} moon period. Strong tidal movement often turns fish on.`);
+  if (moon.nearest <= 2.5) add('fish', `${moon.nearNew ? 'New' : 'Full'} moon period. Strong tidal movement often turns fish on.`);
   if (tideInWindow) add('fish', `${tideInWindow.type} tide around ${fmtHM(tideInWindow.hour)}. Fish the change.`);
   const dp = s.pressureChange;
   if (dp != null) {

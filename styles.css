@@ -225,3 +225,14 @@ details summary { cursor: pointer; color: var(--accent); font-weight: 600; font-
   .trip-row { grid-template-columns: 1fr 1fr; }
   .chip.share { margin-left: 0; }
 }
+
+/* Light/dark toggle */
+:root { color-scheme: light; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { color-scheme: dark; } }
+:root[data-theme="dark"] { color-scheme: dark; }
+.btn.icon {
+  background: transparent; color: var(--text); border: 1px solid var(--border);
+  width: 36px; height: 36px; padding: 0; display: grid; place-items: center; font-size: 1.05rem; line-height: 1;
+}
+.btn.icon:hover { background: var(--surface-2); }
+.btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }

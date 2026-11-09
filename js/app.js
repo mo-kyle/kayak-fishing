@@ -416,6 +416,27 @@ function renderMap() {
 }
 
 $('#refresh').addEventListener('click', () => load(true));
+
+// ---------- light / dark toggle ----------
+const systemDark = window.matchMedia('(prefers-color-scheme: dark)');
+const currentTheme = () => document.documentElement.dataset.theme || (systemDark.matches ? 'dark' : 'light');
+function syncThemeButton() {
+  const next = currentTheme() === 'dark' ? 'light' : 'dark';
+  const b = $('#theme');
+  b.textContent = next === 'light' ? '☀️' : '🌙';
+  b.title = `Switch to ${next} mode`;
+  b.setAttribute("aria-label", b.title);
+}
+$('#theme').addEventListener('click', () => {
+  const next = currentTheme() === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.theme = next;
+  try { localStorage.setItem('kf:theme', next); } catch (_) { /* ignore */ }
+  syncThemeButton();
+  if (Object.keys(state.results).length) render(); // chart + map colours come from CSS variables
+});
+// Follow the device if it changes and the user hasn't picked one.
+systemDark.addEventListener?.('change', () => { if (!document.documentElement.dataset.theme) { syncThemeButton(); if (Object.keys(state.results).length) render(); } });
+syncThemeButton();
 readURL();
 wireFilter();
 load();
