@@ -23,18 +23,20 @@ async function load(force = false) {
   const btn = $('#refresh');
   btn.disabled = true;
   showStatus('Loading wind, waves and sea temperature…');
-  const settled = await Promise.allSettled(SPOTS.map((s) => Engine.loadSpot(s, force)));
-  const errors = [];
-  settled.forEach((r, i) => {
-    if (r.status === 'fulfilled') { state.results[SPOTS[i].id] = r.value; state.raw[SPOTS[i].id] = r.value.raw; }
-    else errors.push(`${SPOTS[i].name}: ${r.reason.message}`);
-  });
-  btn.disabled = false;
-  if (!Object.keys(state.results).length) {
-    showStatus(`Couldn't load the forecast. Check your connection and try again. (${errors.join('; ')})`, true);
+  let loaded;
+  try {
+    loaded = await Engine.loadAll(SPOTS, force);
+  } catch (e) {
+    btn.disabled = false;
+    showStatus(`Couldn't load the forecast. Check your connection and try again in a minute. (${e.message})`, true);
     return;
   }
-  errors.length ? showStatus(`Some spots failed to load: ${errors.join('; ')}`, true) : hideStatus();
+  btn.disabled = false;
+  loaded.results.forEach((r) => { state.results[r.spot.id] = r; state.raw[r.spot.id] = r.raw; });
+  if (loaded.stale) {
+    const t = new Date(loaded.stale).toLocaleString('en-ZA', { weekday: 'short', hour: '2-digit', minute: '2-digit' });
+    showStatus(`The forecast service isn't answering right now, so this is the forecast saved at ${t}. Tap Refresh in a few minutes.`, true);
+  } else hideStatus();
   if (!state.results[state.spotId]) state.spotId = Object.keys(state.results)[0];
   $('#updated').textContent = `Updated ${new Date().toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' })}`;
   applyFilter();

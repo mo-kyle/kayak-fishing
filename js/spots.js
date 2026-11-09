@@ -65,6 +65,10 @@ const FISH = {
     name: 'Maasbanker (bait)', latin: 'Trachurus capensis', temp: [14, 20],
     method: 'Sabiki rigs at dawn. They are the best live bait for yellowtail.',
   },
+  stJoseph: {
+    name: 'St Joseph shark', latin: 'Callorhinchus capensis', temp: [10, 17],
+    method: 'Sardine or chokka on a running sinker over sand just behind the surf. Mostly a summer fish on the West Coast. Handle carefully (it has a sharp dorsal spine) and release it.',
+  },
   chokka: {
     name: 'Chokka squid', latin: 'Loligo reynaudii', temp: [13, 19],
     method: 'Squid jigs (size 2.5–3.0) worked slowly over sand and low reef in 10–30 m, best at dusk, at night or on overcast days. Fresh chokka is also the top bait for almost everything else on this list.',
@@ -75,6 +79,30 @@ const FISH = {
 // facing = compass bearing looking from the launch out to sea.
 // Wind blowing FROM the opposite direction is offshore and can push a kayak out to sea.
 const SPOTS = [
+  // ---------------- West Coast ----------------
+  {
+    id: 'melkbos',
+    name: 'Melkbosstrand',
+    side: 'West Coast',
+    lat: -33.7265, lon: 18.4395,
+    marineLat: -33.73, marineLon: 18.42,
+    facing: 255,
+    launch: 'Melkbosstrand main beach (surf launch, no harbour)',
+    notes: [
+      'This is a <b>surf launch</b> with no harbour or slipway. When the swell is up the shore-break dumps, so only go on small-swell days and be confident punching out and landing through surf.',
+      'The summer south-easter blows <b>cross-offshore</b> here and fills in through the morning. Early starts are usually calmest. Winter is often glassy between fronts.',
+      'The water is cold West Coast water, often 10–14 °C after upwelling. Dress for falling in (a wetsuit, not boardies).',
+      'Koeberg power station, just to the north, is a restricted security area, so keep well clear. You are outside the Table Mountain MPA here, but you still need a permit and must follow the bag limits.',
+    ],
+    fish: [
+      { id: 'snoek', present: months(3, 9), peak: months(4, 7), abundance: 0.75 },
+      { id: 'hottentot', present: ALL_YEAR, peak: ALL_YEAR, abundance: 0.8 },
+      { id: 'stJoseph', present: months(10, 4), peak: months(11, 2), abundance: 0.7 },
+      { id: 'smoothhound', present: ALL_YEAR, peak: months(11, 3), abundance: 0.7 },
+      { id: 'whiteSteenbras', present: months(10, 3), peak: months(12, 2), abundance: 0.25 },
+      { id: 'yellowtail', present: months(12, 3), peak: months(1, 2), abundance: 0.2 },
+    ],
+  },
   // ---------------- Atlantic Seaboard ----------------
   {
     id: 'seapoint',
@@ -294,6 +322,7 @@ const SPOTS = [
 // No-go areas shown on the map (approximate positions; always check official maps).
 const NO_GO = [
   { name: 'SA Navy base, Simon\'s Town', lat: -34.1915, lon: 18.4350, note: 'Restricted military harbour. No paddling or fishing inside.' },
+  { name: 'Koeberg power station', lat: -33.6765, lon: 18.4320, note: 'Restricted security area (National Key Point). Keep well clear on the water.' },
   { name: 'Boulders penguin colony', lat: -34.1972, lon: 18.4515, note: 'MPA no-take zone.' },
 ];
 

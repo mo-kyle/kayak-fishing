@@ -2,6 +2,7 @@
 
 A 7-day planner for kayak fishing around Cape Town:
 
+- **West Coast:** Melkbosstrand (surf launch; Koeberg is off-limits)
 - **Atlantic Seaboard:** Sea Point, Hout Bay
 - **False Bay west:** Fish Hoek, Simon's Town (launch from Long Beach; the SA Navy harbour is off-limits), Miller's Point
 - **Cape Point:** Buffels Bay inside the national park (windows limited to gate hours)

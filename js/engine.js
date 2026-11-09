@@ -64,44 +64,71 @@ const fmtHM = (h) => {
 const noonDate = (date) => new Date(`${date}T12:00:00+02:00`);
 
 // ---------- fetching ----------
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Fetch JSON with a 30-minute localStorage cache. Retries once if rate-limited (429) or on a
+ * network/server error, and falls back to the last saved copy (any age) if the service is down.
+ * Returns { data, stale } where stale is the saved timestamp when an old copy was used.
+ */
 async function getJSON(url, force) {
   const key = `kf:${url}`;
-  if (!force) {
+  let cached = null;
+  try { cached = JSON.parse(localStorage.getItem(key)); } catch (_) { /* storage unavailable */ }
+  if (!force && cached && Date.now() - cached.t < CACHE_MINUTES * 60e3) return { data: cached.d, stale: null };
+  let lastErr;
+  for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      const c = JSON.parse(localStorage.getItem(key));
-      if (c && Date.now() - c.t < CACHE_MINUTES * 60e3) return c.d;
-    } catch (_) { /* storage unavailable */ }
+      const r = await fetch(url);
+      if (r.ok) {
+        const d = await r.json();
+        try { localStorage.setItem(key, JSON.stringify({ t: Date.now(), d })); } catch (_) { /* full or blocked */ }
+        return { data: d, stale: null };
+      }
+      lastErr = new Error(`${r.status} from ${new URL(url).host}`);
+      if (r.status !== 429 && r.status < 500) break; // a bad request won't fix itself
+    } catch (e) { lastErr = e; }
+    if (attempt === 0) await sleep(1500);
   }
-  const r = await fetch(url);
-  if (!r.ok) throw new Error(`${r.status} from ${new URL(url).host}`);
-  const d = await r.json();
-  try { localStorage.setItem(key, JSON.stringify({ t: Date.now(), d })); } catch (_) { /* ignore */ }
-  return d;
+  if (cached) return { data: cached.d, stale: cached.t };
+  throw lastErr;
 }
 
-function weatherUrl(s) {
+// All spots go in ONE request per API (comma-separated coordinates); the API returns a list in the same order.
+const join = (spots, k) => spots.map((s) => s[k]).join(',');
+function weatherUrl(spots) {
   const p = new URLSearchParams({
-    latitude: s.lat, longitude: s.lon, timezone: TZ, forecast_days: FORECAST_DAYS, past_days: 1,
+    latitude: join(spots, 'lat'), longitude: join(spots, 'lon'), timezone: TZ, forecast_days: FORECAST_DAYS, past_days: 1,
     wind_speed_unit: 'kn',
     hourly: 'temperature_2m,apparent_temperature,precipitation_probability,precipitation,weather_code,cloud_cover,visibility,wind_speed_10m,wind_direction_10m,wind_gusts_10m,pressure_msl',
     daily: 'sunrise,sunset,uv_index_max',
   });
   return `https://api.open-meteo.com/v1/forecast?${p}`;
 }
-function marineUrl(s) {
+function marineUrl(spots) {
   const p = new URLSearchParams({
-    latitude: s.marineLat, longitude: s.marineLon, timezone: TZ, forecast_days: FORECAST_DAYS, past_days: 1,
+    latitude: join(spots, 'marineLat'), longitude: join(spots, 'marineLon'), timezone: TZ, forecast_days: FORECAST_DAYS, past_days: 1,
     cell_selection: 'sea',
     hourly: 'wave_height,wave_direction,wave_period,wind_wave_height,wind_wave_period,swell_wave_height,swell_wave_period,swell_wave_direction,sea_surface_temperature,sea_level_height_msl,ocean_current_velocity',
   });
   return `https://marine-api.open-meteo.com/v1/marine?${p}`;
 }
 
-async function loadSpot(spot, force) {
-  const [w, m] = await Promise.all([getJSON(weatherUrl(spot), force), getJSON(marineUrl(spot), force)]);
-  const res = analyseSpot(spot, w, m);
-  res.raw = { w, m }; // kept so the UI can re-score for a different time range without refetching
-  return res;
+/** Load and score every spot with 2 requests in total. Returns { results, stale }. */
+async function loadAll(spots, force) {
+  const urls = [weatherUrl(spots), marineUrl(spots)];
+  const [w, m] = await Promise.all(urls.map((u) => getJSON(u, force)));
+  // Drop cached forecasts for old URLs (previous spot lists / older app versions) so storage doesn't fill up.
+  try { Object.keys(localStorage).forEach((k) => { if (k.startsWith('kf:http') && !urls.includes(k.slice(3))) localStorage.removeItem(k); }); } catch (_) { /* ignore */ }
+  const W = Array.isArray(w.data) ? w.data : [w.data];
+  const Mr = Array.isArray(m.data) ? m.data : [m.data];
+  if (W.length !== spots.length || Mr.length !== spots.length) throw new Error('Forecast came back incomplete');
+  const results = spots.map((spot, i) => {
+    const res = analyseSpot(spot, W[i], Mr[i]);
+    res.raw = { w: W[i], m: Mr[i] }; // kept so the UI can re-score for a different time range without refetching
+    return res;
+  });
+  return { results, stale: w.stale || m.stale ? Math.min(...[w.stale, m.stale].filter(Boolean)) : null };
 }
 
 // ---------- per-hour conditions ----------
@@ -406,4 +433,4 @@ function buildReasons(spot, s, best, moon, species, tideInWindow, dayTides) {
   return R;
 }
 
-window.Engine = { loadSpot, analyseSpot, fmtHM, compass, windName, chopLabel, todayStr, nowHour, verdictFor };
+window.Engine = { loadAll, analyseSpot, fmtHM, compass, windName, chopLabel, todayStr, nowHour, verdictFor };
