@@ -3,7 +3,7 @@
 const $ = (s) => document.querySelector(s);
 
 // filter: from/to = 'YYYY-MM-DD' or null (= first/last forecast day); start/end = hour 0–24 or null (= sunrise/sunset)
-const state = { results: {}, raw: {}, spotId: SPOTS[0].id, date: null, filter: { from: null, to: null, start: null, end: null } };
+const state = { results: {}, raw: {}, spotId: SPOTS.some((s) => s.id === 'seapoint') ? 'seapoint' : SPOTS[0].id, date: null, filter: { from: null, to: null, start: null, end: null } };
 let chart = null;
 let map = null;
 
@@ -200,7 +200,17 @@ function renderOverview() {
   const dates = visibleDays(results[0]).map((d) => d.date);
   $('#gridTitle').textContent = filterActive() ? 'Your days at a glance' : 'This week at a glance';
   const head = `<tr><th></th>${dates.map((dt) => `<th>${dt === Engine.todayStr() ? 'Today' : fmtDay(dt, { weekday: 'short' })}<br><span class="muted">${fmtDay(dt, { day: 'numeric', month: 'short' })}</span></th>`).join('')}</tr>`;
-  const rows = results.map((r) => `<tr><th class="spot">${r.spot.name}<span>${r.spot.side}</span></th>${dates.map((dt) => {
+  // Area heading row whenever the area changes (West Coast, Atlantic Seaboard, False Bay, ...)
+  let lastArea = null;
+  const groupRow = (r) => {
+    const area = r.spot.side.split(' (')[0];
+    if (area === lastArea) return '';
+    lastArea = area;
+    return `<tr class="group"><th colspan="${dates.length + 1}" scope="colgroup"><span>${area}</span></th></tr>`;
+  };
+  // Area is in the heading row, so under the name show only the detail in brackets (e.g. "west", "lagoon").
+  const spotSub = (sp) => { const m = sp.side.match(/\((.+)\)/); return m ? `<span>${m[1]}</span>` : ''; };
+  const rows = results.map((r) => groupRow(r) + `<tr><th class="spot">${r.spot.name}${spotSub(r.spot)}</th>${dates.map((dt) => {
     const d = r.days.find((x) => x.date === dt);
     if (!d) return '<td></td>';
     const sel = r.spot.id === state.spotId && dt === state.date ? ' sel' : '';
