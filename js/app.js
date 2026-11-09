@@ -77,7 +77,7 @@ function renderBest() {
   el.className = 'best';
   el.onclick = () => select(top.spot.id, d.date, true);
   el.innerHTML = `<div class="big">🎣</div><div>
-    <b>Best this week: ${top.spot.name}, ${d.isToday ? 'today' : fmtDay(d.date, { weekday: 'long', day: 'numeric', month: 'short' })}, ${fmtHM(d.best.start)}–${fmtHM(d.best.end)}</b>
+    <b>Best this week: ${top.spot.name}, ${d.isToday ? 'today' : fmtDay(d.date, { weekday: 'long', day: 'numeric', month: 'short' })}, <span class="nowrap">${fmtHM(d.best.start)}–${fmtHM(d.best.end)}</span></b>
     <p class="small">Score ${d.overall}. Wind ${r0(d.stats.winWind)} kn, seas ${r1(d.stats.winWave)} m, water ${r1(d.stats.sst)} °C. ${d.species.filter((s) => s.likelihood >= 0.45).slice(0, 2).map((s) => s.name).join(' & ') || ''}</p>
     ${others.length ? `<p class="small muted">Also good: ${others.map((o) => `${o.spot.name} ${dayLabel(o.day)} (${o.day.overall})`).join(' · ')}</p>` : ''}
   </div>`;
