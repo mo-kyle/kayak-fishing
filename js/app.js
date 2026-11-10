@@ -3,7 +3,8 @@
 const $ = (s) => document.querySelector(s);
 
 // filter: from/to = 'YYYY-MM-DD' or null (= first/last forecast day); start/end = hour 0–24 or null (= sunrise/sunset)
-const state = { results: {}, raw: {}, spotId: SPOTS.some((s) => s.id === 'seapoint') ? 'seapoint' : SPOTS[0].id, date: null, filter: { from: null, to: null, start: null, end: null } };
+const state = { results: {}, raw: {}, spotId: SPOTS.some((s) => s.id === 'seapoint') ? 'seapoint' : SPOTS[0].id, date: null, filter: { from: null, to: null, start: null, end: null },
+  favs: new Set(), area: 'all', showAll: false, moreOpen: false };
 let chart = null;
 let map = null;
 
@@ -101,7 +102,8 @@ function renderFilter() {
   const n = dates.filter(inDates).length;
   const range = from === to ? fmtDay(from, { weekday: 'long', day: 'numeric', month: 'short' }) : `${fmtDay(from)} – ${fmtDay(to)}`;
   const hrs = f.start == null && f.end == null ? 'sunrise to sunset' : `${f.start == null ? 'sunrise' : HH(f.start)} to ${f.end == null ? 'sunset' : HH(f.end)}`;
-  $('#tripNote').textContent = `Showing ${range} (${n} day${n === 1 ? '' : 's'}), ${hrs}.`;
+  $('#tripNote').textContent = filterActive() ? `${range}, ${hrs}` : `Next ${n} days, ${hrs}`;
+  $('#filterBtn').classList.toggle('active', filterActive());
   document.querySelectorAll('.chip[data-preset]').forEach((b) => b.classList.toggle('on', b.dataset.preset === presetMatch()));
 }
 
@@ -130,7 +132,7 @@ function applyPreset(name) {
 async function shareLink() {
   writeURL();
   const url = location.href;
-  const text = filterActive() ? `Kayak fishing forecast: ${$('#tripNote').textContent.replace(/^Showing /, '')}` : 'Kayak fishing forecast for the week';
+  const text = filterActive() ? `Kayak fishing forecast: ${$('#tripNote').textContent}` : 'Kayak fishing forecast for the week';
   try {
     if (navigator.share) { await navigator.share({ title: 'Kayak Fishing Planner', text, url }); return; }
     await navigator.clipboard.writeText(url);
@@ -161,12 +163,51 @@ function select(spotId, date, scroll) {
 function render() {
   renderFilter();
   renderBest();
-  renderOverview();
+  renderPlan();
+  if ($('#gridBox').open) renderOverview();
   renderDetail();
   renderMap();
 }
 
-// ---------- best-day banner ----------
+// ---------- small building blocks ----------
+const ICON = {
+  wind: '<path d="M12.8 19.6A2 2 0 1 0 14 16H2"/><path d="M17.5 8a2.5 2.5 0 1 1 2 4H2"/><path d="M9.8 4.4A2 2 0 1 1 11 8H2"/>',
+  waves: '<path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/>',
+  temp: '<path d="M14 4v10.54a4 4 0 1 1-4 0V4a2 2 0 0 1 4 0Z"/>',
+  moon: '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>',
+  fish: '<path d="M6.5 12c.94-3.46 4.94-6 8.5-6 3.56 0 6.06 2.54 7 6-.94 3.47-3.44 6-7 6s-7.56-2.53-8.5-6Z"/><path d="M18 12v.5"/><path d="M16 17.93a9.77 9.77 0 0 1 0-11.86"/><path d="M7 10.67C7 8 5.58 5.97 2.73 5.5c-1 1.5-1 5 .23 6.5-1.24 1.5-1.24 5-.23 6.5C5.58 18.03 7 16 7 13.33"/>',
+  star: '<path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>',
+  chev: '<path d="m9 18 6-6-6-6"/>',
+  back: '<path d="m15 18-6-6 6-6"/>',
+  alert: '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+  pin: '<path d="M20 10c0 4.99-5.54 10.19-7.4 11.8a1 1 0 0 1-1.2 0C9.54 20.19 4 14.99 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/>',
+};
+const icon = (n, cls = '') => `<svg class="ic${cls ? ` ${cls}` : ''}" viewBox="0 0 24 24" aria-hidden="true">${ICON[n]}</svg>`;
+const areaOf = (sp) => sp.side.split(' (')[0];
+const AREAS = [...new Set(SPOTS.map(areaOf))];
+const areaShort = (a) => (a === 'Atlantic Seaboard' ? 'Atlantic' : a);
+const longDay = (d) => (d.isToday ? `Today, ${fmtDay(d.date, { day: 'numeric', month: 'short' })}` : fmtDay(d.date, { weekday: 'long', day: 'numeric', month: 'short' }));
+const listJoin = (a) => (a.length < 2 ? a.join('') : `${a.slice(0, -1).join(', ')} and ${a.at(-1)}`);
+const win = (d) => `<span class="nowrap">${fmtHM(d.best.start)}–${fmtHM(d.best.end)}</span>`;
+const badge = (d) => `<div class="score-badge ${d.verdict.key}" aria-label="Score ${d.overall}, ${d.verdict.label}"><b class="tnum">${d.overall}</b><span>${d.verdict.short}</span></div>`;
+const scoreBox = (d) => `<span class="score-box ${d.verdict.key} tnum" aria-label="Score ${d.overall}">${d.overall}</span>`;
+const fact = (ic, k, v, sub) => `<div class="fact">${icon(ic)}<div><div class="fk">${k}</div><div class="fv tnum">${v}</div>${sub ? `<div class="fs">${sub}</div>` : ''}</div></div>`;
+
+// ---------- my spots (starred, saved on this device) ----------
+function loadFavs() { try { return new Set(JSON.parse(localStorage.getItem('kf:favs') || '[]')); } catch (_) { return new Set(); } }
+function toggleFav(id) {
+  state.favs.has(id) ? state.favs.delete(id) : state.favs.add(id);
+  try { localStorage.setItem('kf:favs', JSON.stringify([...state.favs])); } catch (_) { /* ignore */ }
+  if (state.area === 'fav' && !state.favs.size) state.area = 'all';
+  render();
+}
+function areaSpots() {
+  if (state.area === 'fav') return SPOTS.filter((s) => state.favs.has(s.id));
+  if (state.area === 'all') return SPOTS;
+  return SPOTS.filter((s) => areaOf(s) === state.area);
+}
+
+// ---------- best bet ----------
 function renderBest() {
   const el = $('#best');
   const all = [];
@@ -174,41 +215,129 @@ function renderBest() {
   all.sort((a, b) => b.day.overall - a.day.overall);
   const top = all[0];
   const scope = filterActive() ? 'in your time' : 'this week';
-  el.hidden = false;
   if (!top || top.day.overall < 60) {
-    el.className = 'best none';
-    el.onclick = null;
-    el.innerHTML = filterActive()
-      ? `<div class="big">🌊</div><div><b>Nothing good in your time</b><p class="muted small">No spot scores "Good" or better on those days and hours. Try other days, wider hours, or check back as the forecast updates.</p></div>`
-      : `<div class="big">🌊</div><div><b>No standout days this week</b><p class="muted small">Nothing scores "Good" or better yet. Forecasts change, so check back in a day or two.</p></div>`;
+    el.className = 'best-wrap solo';
+    el.innerHTML = `<div class="card best-card none"><p class="eyebrow">Best bet ${scope}</p>
+      <h2 class="best-name">${filterActive() ? 'Nothing good in your time' : 'No standout days yet'}</h2>
+      <p class="muted">${filterActive() ? 'No spot scores "Good" or better on those days and hours. Try other days or wider hours.' : 'Nothing scores "Good" or better this week. Forecasts change, so check back in a day or two.'}</p></div>`;
     return;
   }
-  const d = top.day;
-  const others = all.slice(1, 3).filter((x) => x.day.overall >= 60);
-  el.className = 'best';
-  el.onclick = () => select(top.spot.id, d.date, true);
-  el.innerHTML = `<div class="big">🎣</div><div>
-    <b>Best ${scope}: ${top.spot.name}, ${d.isToday ? 'today' : fmtDay(d.date, { weekday: 'long', day: 'numeric', month: 'short' })}, <span class="nowrap">${fmtHM(d.best.start)}–${fmtHM(d.best.end)}</span></b>
-    <p class="small">Score ${d.overall}. Wind ${r0(d.stats.winWind)} kn, seas ${r1(d.stats.winWave)} m, water ${r1(d.stats.sst)} °C. ${d.species.filter((s) => s.likelihood >= 0.45).slice(0, 2).map((s) => s.name).join(' & ') || ''}</p>
-    ${others.length ? `<p class="small muted">Also good: ${others.map((o) => `${o.spot.name} ${dayLabel(o.day)} (${o.day.overall})`).join(' · ')}</p>` : ''}
-  </div>`;
+  const d = top.day, s = d.stats;
+  const seen = new Set([top.spot.id]);
+  const others = [];
+  for (const x of all.slice(1)) {
+    if (x.day.overall < 60 || others.length === 3) break;
+    if (seen.has(x.spot.id)) continue;
+    seen.add(x.spot.id);
+    others.push(x);
+  }
+  const fish = d.species.filter((f) => f.likelihood >= 0.45).slice(0, 3).map((f) => f.name);
+  el.className = `best-wrap${others.length ? '' : ' solo'}`;
+  el.innerHTML = `
+    <article class="card best-card">
+      <div class="best-top">
+        <div>
+          <p class="eyebrow">Best bet ${scope}</p>
+          <h2 class="best-name">${top.spot.name}</h2>
+          <p class="best-when">${longDay(d)} · <b>${win(d)}</b></p>
+        </div>
+        ${badge(d)}
+      </div>
+      <div class="facts">
+        ${fact('wind', 'Wind', `${r0(s.winWind)} kn`, `gusts ${r0(s.winGust)}`)}
+        ${fact('waves', 'Waves', `${r1(s.winWave)} m`, chopLabel(s.winChop ?? 0).toLowerCase())}
+        ${fact('temp', 'Water', `${r0(s.sst)} °C`, '')}
+      </div>
+      ${fish.length ? `<p class="best-fish">${icon('fish')}<span>${listJoin(fish)} ${fish.length > 1 ? 'are' : 'is'} likely</span></p>` : ''}
+      <button type="button" class="btn wide" data-go="${top.spot.id}|${d.date}">See the plan</button>
+    </article>
+    ${others.length ? `<div class="card also"><h3>Also good</h3><ul class="rows">${others.map((o) => `<li><button type="button" class="row" data-go="${o.spot.id}|${o.day.date}">${scoreBox(o.day)}<span class="row-main"><b>${o.spot.name}</b><span>${dayLabel(o.day)} · ${win(o.day)}</span></span>${icon('chev', 'chev')}</button></li>`).join('')}</ul></div>` : ''}`;
+  el.querySelectorAll('[data-go]').forEach((b) => b.addEventListener('click', () => { const [id, date] = b.dataset.go.split('|'); select(id, date, true); }));
 }
 
-// ---------- overview grid ----------
-function renderOverview() {
+// ---------- pick a day: day strip + ranked spots ----------
+const LIMIT = 5;
+function renderPlan() {
   const results = SPOTS.map((s) => state.results[s.id]).filter(Boolean);
   const dates = visibleDays(results[0]).map((d) => d.date);
-  $('#gridTitle').textContent = filterActive() ? 'Your days at a glance' : 'This week at a glance';
+  const pool = areaSpots().map((s) => state.results[s.id]).filter(Boolean);
+  const dayOf = (r, dt) => r.days.find((x) => x.date === dt);
+
+  const days = $('#days');
+  days.style.gridTemplateColumns = `repeat(${dates.length}, minmax(0, 1fr))`;
+  days.innerHTML = dates.map((dt) => {
+    const scores = (pool.length ? pool : results).map((r) => dayOf(r, dt)).filter(Boolean).map((d) => d.overall);
+    const top = Math.max(...scores);
+    const on = dt === state.date;
+    return `<button type="button" class="day${on ? ' on' : ''}" data-date="${dt}" aria-pressed="${on}" aria-label="${fmtDay(dt, { weekday: 'long', day: 'numeric', month: 'long' })}, best spot scores ${top}">
+      <span class="dw">${dt === Engine.todayStr() ? 'Today' : fmtDay(dt, { weekday: 'short' })}</span><span class="dn tnum">${parseInt(dt.slice(8), 10)}</span><i class="dot ${Engine.verdictFor(top).key}"></i></button>`;
+  }).join('');
+
+  const ranked = pool.map((r) => ({ spot: r.spot, d: dayOf(r, state.date) })).filter((x) => x.d).sort((a, b) => b.d.overall - a.d.overall);
+  const n = ranked.length, good = ranked.filter((x) => x.d.overall >= 60).length;
+  const isToday = state.date === Engine.todayStr();
+  $('#dayTitle').textContent = isToday ? `Today, ${fmtDay(state.date, { day: 'numeric', month: 'short' })}` : fmtDay(state.date, { weekday: 'long', day: 'numeric', month: 'short' });
+  let sum;
+  if (!n) sum = 'Tap the star on any spot to keep it here.';
+  else if (n === 1) sum = `${ranked[0].spot.name} ${good ? 'looks good' : 'doesn\'t look good'}.`;
+  else sum = good === 0 ? `None of these ${n} spots look good.` : good === n ? `All ${n} spots look good.` : `${good} of ${n} spots look good.`;
+  const t = ranked[0]?.d;
+  if (t && good) {
+    const st = t.stats;
+    if (t.dayOver) sum += ' Most of today\'s daylight is gone.';
+    else if (st.arvoWind != null && st.morningWind != null && st.arvoWind - st.morningWind >= 6 && st.arvoWind >= 12) sum += ' Go early, the wind picks up in the afternoon.';
+    else if (st.windAvg <= 8) sum += ' Light wind most of the day.';
+  }
+  $('#daySummary').textContent = sum;
+
+  const chips = [['all', 'All'], ['fav', `${icon('star', 'star-ic')}My spots`], ...AREAS.map((a) => [a, areaShort(a)])];
+  $('#areas').innerHTML = chips.map(([k, l]) => `<button type="button" class="chip${state.area === k ? ' on' : ''}" data-area="${k}" aria-pressed="${state.area === k}">${l}</button>`).join('');
+
+  const mixed = state.area === 'all' || state.area === 'fav';
+  const shown = state.showAll ? ranked : ranked.slice(0, LIMIT);
+  $('#ranked').innerHTML = shown.map(({ spot, d }) => `<li><button type="button" class="row${spot.id === state.spotId ? ' sel' : ''}" data-spot="${spot.id}">
+      ${scoreBox(d)}
+      <span class="row-main"><b>${spot.name}${state.favs.has(spot.id) ? icon('star', 'star-ic on') : ''}${mixed ? `<small>${areaShort(areaOf(spot))}</small>` : ''}</b>
+      <span>${win(d)} · ${r0(d.stats.winWind)} kn · ${r1(d.stats.winWave)} m</span></span>
+      ${icon('chev', 'chev')}</button></li>`).join('');
+  const rest = n - LIMIT, more = $('#moreSpots');
+  more.hidden = rest <= 0;
+  more.textContent = state.showAll ? 'Show fewer' : `Show ${rest} more spot${rest === 1 ? '' : 's'}`;
+}
+
+function wirePlan() {
+  $('#days').addEventListener('click', (e) => { const b = e.target.closest('[data-date]'); if (b) { state.date = b.dataset.date; render(); } });
+  $('#areas').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-area]');
+    if (!b) return;
+    state.area = b.dataset.area; state.showAll = false;
+    try { localStorage.setItem('kf:area', state.area); } catch (_) { /* ignore */ }
+    render();
+  });
+  $('#ranked').addEventListener('click', (e) => { const b = e.target.closest('[data-spot]'); if (b) select(b.dataset.spot, null, true); });
+  $('#moreSpots').addEventListener('click', () => { state.showAll = !state.showAll; renderPlan(); });
+  $('#filterBtn').addEventListener('click', () => {
+    const p = $('#trip');
+    p.hidden = !p.hidden;
+    $('#filterBtn').setAttribute('aria-expanded', String(!p.hidden));
+  });
+  $('#gridBox').addEventListener('toggle', () => { if ($('#gridBox').open) renderOverview(); });
+}
+
+// ---------- overview grid (tucked away under "Compare every spot") ----------
+function renderOverview() {
+  const results = SPOTS.map((s) => state.results[s.id]).filter(Boolean);
+  if (!results.length) return;
+  const dates = visibleDays(results[0]).map((d) => d.date);
   const head = `<tr><th></th>${dates.map((dt) => `<th>${dt === Engine.todayStr() ? 'Today' : fmtDay(dt, { weekday: 'short' })}<br><span class="muted">${fmtDay(dt, { day: 'numeric', month: 'short' })}</span></th>`).join('')}</tr>`;
   // Area heading row whenever the area changes (West Coast, Atlantic Seaboard, False Bay, ...)
   let lastArea = null;
   const groupRow = (r) => {
-    const area = r.spot.side.split(' (')[0];
+    const area = areaOf(r.spot);
     if (area === lastArea) return '';
     lastArea = area;
     return `<tr class="group"><th colspan="${dates.length + 1}" scope="colgroup"><span>${area}</span></th></tr>`;
   };
-  // Area is in the heading row, so under the name show only the detail in brackets (e.g. "west", "lagoon").
   // Long single-word names get a short form on phones (e.g. Melkbosstrand -> Melkbos).
   const spotName = (sp) => (sp.short ? `<span class="nm-full">${sp.name}</span><span class="nm-short">${sp.short}</span>` : sp.name);
   const spotSub = (sp) => { const m = sp.side.match(/\((.+)\)/); return m ? `<span>${m[1]}</span>` : ''; };
@@ -228,29 +357,53 @@ function renderOverview() {
   t.querySelectorAll('.cell').forEach((b) => b.addEventListener('click', () => select(b.dataset.spot, b.dataset.date, true)));
 }
 
-// ---------- detail ----------
-function ring(score, key) {
-  const c = 2 * Math.PI * 52;
-  return `<div class="ring"><svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="52" fill="none" stroke="var(--surface-2)" stroke-width="12"/>
-    <circle cx="60" cy="60" r="52" fill="none" stroke="var(--${key})" stroke-width="12" stroke-linecap="round" stroke-dasharray="${(score / 100) * c} ${c}"/></svg>
-    <div class="val"><div><b class="tnum">${score}</b><span>/ 100</span></div></div></div>`;
-}
-
+// ---------- spot detail ----------
 function renderDetail() {
   const r = state.results[state.spotId];
   const spot = r.spot;
   const days = visibleDays(r);
   const d = days.find((x) => x.date === state.date) || days[0];
   const s = d.stats;
+  const fav = state.favs.has(spot.id);
+  const f = state.filter;
+  const nowH = Engine.nowHour();
+  const busy = (h) => (f.start != null && h.hour < f.start) || (f.end != null && h.hour >= f.end); // outside your free hours
+  const sub = spot.side.match(/\((.+)\)/)?.[1];
+  const idx = days.indexOf(d);
 
-  const spotTabs = SPOTS.filter((x) => state.results[x.id]).map((x) => `<button class="tab${x.id === spot.id ? ' on' : ''}" data-spot="${x.id}">${x.name}</button>`).join('');
-  const dayTabs = days.map((x) => `<button class="tab${x.date === d.date ? ' on' : ''}" data-date="${x.date}">${dayLabel(x)} <span class="pill ${x.verdict.key}">${x.overall}</span></button>`).join('');
+  // The window, in words
+  const calm = s.winWind <= 4 ? 'Almost no wind' : s.winWind <= 8 ? 'Light wind' : s.winWind <= 13 ? 'Moderate wind' : 'Windy';
+  const winLine = `${calm}${s.winWind > 4 ? ` from the ${compass(s.winDir)}` : ''}, ${chopLabel(s.winChop ?? 0).toLowerCase()} water. Launch: ${spot.launch}.`;
+  // One warning only: the most serious thing to know
+  const warn = d.reasons.find((x) => x.type === 'bad') || d.reasons.find((x) => x.type === 'ok' && !/^Moderate wind|^Swell around|^Current/.test(x.text));
 
-  const tideTxt = d.tides.length ? d.tides.map((t) => `${t.type} ${fmtHM(t.hour)}`).join(' · ') : 'n/a';
+  // The day as a strip of coloured hours (sunrise to sunset)
+  const tl = d.hours.filter((h) => h.hour >= Math.floor(s.sunrise) && h.hour < Math.ceil(s.sunset));
+  const runs = [];
+  tl.forEach((h) => { const k = Engine.verdictFor(h.score).short; const last = runs.at(-1); if (last && last.k === k) last.to = h.hour + 1; else runs.push({ k, from: h.hour, to: h.hour + 1 }); });
+  const tlLabel = runs.map((x) => `${x.k} ${HH(x.from)}–${HH(x.to)}`).join(', ');
+  const ticks = tl.length ? [0, 1 / 3, 2 / 3, 1].map((p) => tl[Math.round(p * (tl.length - 1))].hour + (p === 1 ? 1 : 0)) : [];
+  const bar = tl.map((h) => {
+    const inWin = h.hour >= d.best.start && h.hour < d.best.end;
+    const dim = busy(h) || (d.isToday && h.hour < nowH);
+    return `<span class="tl ${scoreClass(h.score)}${inWin ? ' win' : ''}${dim ? ' dim' : ''}" title="${HH(h.hour)}: score ${h.score}"></span>`;
+  }).join('');
+
+  const tide = d.tideInWindow || d.tides[0];
+  const likely = d.species.filter((x) => x.likelihood >= 0.45).slice(0, 5);
+  const maybe = d.species.filter((x) => x.likelihood >= 0.2 && x.likelihood < 0.45).slice(0, 3);
+  const closed = d.species.filter((x) => x.closed && x.season > 0);
+  const chips = [
+    ...likely.map((x) => `<span class="fchip">${x.name}</span>`),
+    ...maybe.map((x) => `<span class="fchip maybe">${x.name}, maybe</span>`),
+    ...closed.map((x) => `<span class="fchip closed">${x.name}: closed season</span>`),
+  ].join('') || '<span class="muted small">Nothing much in season here right now.</span>';
+
+  // ----- the detail that used to be on screen, now behind "more" -----
   const moonTxt = d.moon.nearest <= 0.75 ? 'Today' : d.moon.toFull < d.moon.toNew ? `Full in ${Math.round(d.moon.toFull)} d` : `New in ${Math.round(d.moon.toNew)} d`;
-
+  const tideTxt = d.tides.length ? d.tides.map((t) => `${t.type} ${fmtHM(t.hour)}`).join(' · ') : 'n/a';
   const stats = [
-    [state.filter.start != null || state.filter.end != null ? 'Wind (your hours)' : 'Wind (daylight)',`${arrow(s.windDir)} ${r0(s.windAvg)} kn`, `${compass(s.windDir)} · max ${r0(s.windMax)} kn`],
+    [f.start != null || f.end != null ? 'Wind (your hours)' : 'Wind (daylight)', `${arrow(s.windDir)} ${r0(s.windAvg)} kn`, `${compass(s.windDir)} · max ${r0(s.windMax)} kn`],
     ['Gusts', `${r0(s.gustMax)} kn`, s.gustMax >= 25 ? '<span class="warn">Dangerous</span>' : s.gustMax >= 18 ? 'Strong' : 'Manageable'],
     ['Waves', `${r1(s.waveAvg)} m`, `max ${r1(s.waveMax)} m · ${r0(s.waveT)} s`],
     ['Swell', `${r1(s.swellH)} m`, `${compass(s.swellDir)} · ${r0(s.swellT)} s period`],
@@ -264,15 +417,12 @@ function renderDetail() {
     ['Pressure', `${r0(s.pressure)} hPa`, s.pressureChange == null ? '' : `${s.pressureChange >= 0 ? '+' : ''}${s.pressureChange.toFixed(1)} vs yesterday`],
   ].map(([k, v, dd]) => `<div class="stat"><div class="k">${k}</div><div class="v tnum">${v}</div><div class="d">${dd}</div></div>`).join('');
 
-  const nowH = Engine.nowHour();
   const rows = d.hours.filter((h) => h.hour >= 4 && h.hour <= 21).map((h) => {
     const night = h.hour < Math.floor(s.sunrise) || h.hour >= Math.ceil(s.sunset);
     const inWin = h.hour >= d.best.start && h.hour < d.best.end;
     const past = d.isToday && h.hour < nowH;
-    const f = state.filter;
-    const busy = (f.start != null && h.hour < f.start) || (f.end != null && h.hour >= f.end); // outside your free hours
-    return `<tr class="${night || past || busy ? 'night' : ''}${inWin ? ' inwin' : ''}">
-      <td class="tnum">${String(h.hour).padStart(2, '0')}:00${inWin ? ' ⭐' : ''}</td>
+    return `<tr class="${night || past || busy(h) ? 'night' : ''}${inWin ? ' inwin' : ''}">
+      <td class="tnum">${HH(h.hour)}${inWin ? ' ⭐' : ''}</td>
       <td class="tnum">${arrow(h.windDir)} ${r0(h.wind)} kn ${compass(h.windDir)}${h.offshore && h.wind > 8 ? ' <span class="warn" title="Offshore wind">⚠ offshore</span>' : ''}</td>
       <td class="tnum${h.gust >= 25 ? ' warn' : ''}">${r0(h.gust)}</td>
       <td class="tnum">${r1(h.waveH)} m · ${r0(h.waveT)} s</td>
@@ -284,69 +434,110 @@ function renderDetail() {
   }).join('');
 
   const month = parseInt(d.date.slice(5, 7), 10);
-  const fishCard = (f) => `<div class="fish${f.likelihood < 0.2 ? ' dim' : ''}">
-    <div class="fish-top"><h3>${f.name}</h3><span class="badge ${f.label.split(' ')[0]}">${f.label}</span></div>
-    <div class="latin">${f.latin} · likes ${f.temp[0]}–${f.temp[1]} °C</div>
-    <div class="months" title="Season: light = present, dark = peak">${Array.from({ length: 12 }, (_, i) => i + 1).map((m) => `<i class="${f.peak.includes(m) ? 'pk' : f.present.includes(m) ? 'p' : ''}${m === month ? ' now' : ''}"></i>`).join('')}</div>
-    <div class="meth">${f.method}</div>
-    ${f.note ? `<div class="small muted">${f.note}</div>` : ''}
-    ${f.closed ? `<div class="small warn">${FISH[f.id].closed.label}</div>` : ''}
+  const fishCard = (x) => `<div class="fish${x.likelihood < 0.2 ? ' dim' : ''}">
+    <div class="fish-top"><h3>${x.name}</h3><span class="badge ${x.label.split(' ')[0]}">${x.label}</span></div>
+    <div class="latin">${x.latin} · likes ${x.temp[0]}–${x.temp[1]} °C</div>
+    <div class="months" title="Season: light = present, dark = peak">${Array.from({ length: 12 }, (_, i) => i + 1).map((m) => `<i class="${x.peak.includes(m) ? 'pk' : x.present.includes(m) ? 'p' : ''}${m === month ? ' now' : ''}"></i>`).join('')}</div>
+    <div class="meth">${x.method}</div>
+    ${x.note ? `<div class="small muted">${x.note}</div>` : ''}
+    ${x.closed ? `<div class="small warn">${FISH[x.id].closed.label}</div>` : ''}
   </div>`;
-  const onFish = d.species.filter((f) => f.likelihood >= 0.2 || f.closed);
-  const offFish = d.species.filter((f) => !(f.likelihood >= 0.2 || f.closed));
+  const onFish = d.species.filter((x) => x.likelihood >= 0.2 || x.closed);
+  const offFish = d.species.filter((x) => !(x.likelihood >= 0.2 || x.closed));
+
+  const spotOptions = AREAS.map((a) => `<optgroup label="${a}">${SPOTS.filter((x) => areaOf(x) === a && state.results[x.id]).map((x) => `<option value="${x.id}">${x.name}</option>`).join('')}</optgroup>`).join('');
 
   $('#detail').innerHTML = `
-    <div class="card">
-      <div class="tabs">${spotTabs}</div>
-      <div class="tabs daytabs">${dayTabs}</div>
-    </div>
+    <div class="card spot-card">
+      <div class="spot-tools">
+        <label class="pick">${icon('pin')}<select id="spotPick" aria-label="Change spot"><option value="" selected disabled hidden>Change spot</option>${spotOptions}</select></label>
+        <button type="button" id="favBtn" class="chip fav${fav ? ' on' : ''}" aria-pressed="${fav}" title="${fav ? 'Remove from my spots' : 'Add to my spots'}">${icon('star', 'star-ic')}${fav ? 'Saved' : 'Save spot'}</button>
+      </div>
 
-    <div class="card">
-      <div class="verdict">
-        ${ring(d.overall, d.verdict.key)}
-        <div>
-          <div class="muted small">${spot.name} · ${spot.side} · ${fmtDay(d.date, { weekday: 'long', day: 'numeric', month: 'long' })}</div>
-          <div class="vtitle">${d.verdict.label}</div>
-          <div class="window">${d.dayOver ? 'Today\'s daylight is mostly gone. Best window earlier was ' : 'Best time on the water: '}<b>${fmtHM(d.best.start)}–${fmtHM(d.best.end)}</b>
-            <span class="muted">· ${r0(s.winWind)} kn ${compass(s.winDir)}, gusts ${r0(s.winGust)} kn</span></div>
-          <div class="subscores">
-            <div>Kayak conditions <b class="tnum">${d.kayak}</b></div>
-            <div>Fishing <b class="tnum">${d.fishing}</b></div>
-            <div>Launch <b>${spot.launch}</b></div>
+      <div class="spot-head">
+        <div class="spot-id">
+          <p class="eyebrow">${areaOf(spot)}${sub ? ` · ${sub}` : ''}</p>
+          <h2 class="spot-name">${spot.name}</h2>
+          <div class="day-step">
+            <button type="button" data-step="-1" aria-label="Previous day"${idx <= 0 ? ' disabled' : ''}>${icon('back')}</button>
+            <span>${longDay(d)}</span>
+            <button type="button" data-step="1" aria-label="Next day"${idx >= days.length - 1 ? ' disabled' : ''}>${icon('chev')}</button>
           </div>
-          <ul class="reasons">${d.reasons.map((x) => `<li class="${x.type}">${x.text}</li>`).join('')}</ul>
         </div>
+        ${badge(d)}
       </div>
-    </div>
 
-    <div class="card">
-      <div class="card-head"><h2>Conditions</h2></div>
-      <div class="stats">${stats}</div>
-    </div>
-
-    <div class="card">
-      <div class="card-head"><h2>Hour by hour</h2><p class="muted small">Bars show wind, the line shows gusts (kn, left axis). Waves and swell are in metres on the right axis. The shaded band is your best window.</p></div>
-      <div class="chart-box"><canvas id="chart"></canvas></div>
-      <div class="table-scroll" style="margin-top:14px">
-        <table class="hourly"><thead><tr><th>Time</th><th>Wind</th><th>Gust</th><th>Waves</th><th>Chop</th><th>Rain</th><th>Air</th><th>Score</th></tr></thead><tbody>${rows}</tbody></table>
+      <div class="window-card ${d.verdict.key}">
+        <span class="wl">${d.dayOver ? 'Today\'s best window has passed. It was' : d.overall < 45 ? 'Least bad time, if you must' : 'Be on the water'}</span>
+        <span class="wt tnum">${fmtHM(d.best.start)} – ${fmtHM(d.best.end)}</span>
+        <span class="ws">${winLine}</span>
       </div>
-    </div>
 
-    <div class="card">
-      <div class="card-head"><h2>Fish at ${spot.name} in ${fmtDay(d.date, { month: 'long' })}</h2>
-        <p class="muted small">Ranked by season, today's sea temperature (${r1(s.sst)} °C) and how common they are here. Bar = Jan→Dec, darker = peak.</p></div>
-      <div class="fish-list">${onFish.map(fishCard).join('')}</div>
-      ${offFish.length ? `<details><summary>Out of season or unlikely right now (${offFish.length})</summary><div class="fish-list" style="margin-top:10px">${offFish.map(fishCard).join('')}</div></details>` : ''}
-    </div>
+      ${warn ? `<div class="callout ${warn.type}" role="note">${icon('alert')}<span>${warn.text}</span></div>` : ''}
 
-    <div class="card">
-      <div class="card-head"><h2>Local knowledge: ${spot.name}</h2></div>
-      <ul class="notes">${spot.notes.map((n) => `<li>${n}</li>`).join('')}</ul>
+      <div class="dayline">
+        <h3>How the day goes</h3>
+        <div class="tl-bar" role="img" aria-label="${tlLabel}" style="grid-template-columns:repeat(${tl.length || 1}, minmax(0, 1fr))">${bar}</div>
+        <div class="tl-ticks" aria-hidden="true">${ticks.map((h) => `<span>${HH(h)}</span>`).join('')}</div>
+        <div class="tl-key small muted" aria-hidden="true"><span><i class="dot great"></i>Go</span><span><i class="dot good"></i>Good</span><span><i class="dot marginal"></i>Iffy</span><span><i class="dot bad"></i>No</span><span><i class="uline"></i>Best window</span></div>
+      </div>
+
+      <div class="facts four">
+        ${fact('wind', 'Wind', `${r0(s.winWind)} kn ${compass(s.winDir)}`, `gusts ${r0(s.winGust)} kn`)}
+        ${fact('waves', 'Waves', `${r1(s.winWave)} m`, chopLabel(s.winChop ?? 0).toLowerCase())}
+        ${fact('temp', 'Water', `${r1(s.sst)} °C`, `air ${r0(s.tempMin)}–${r0(s.tempMax)} °C`)}
+        ${fact('moon', 'Tide', tide ? `${tide.type} ${fmtHM(tide.hour)}` : '–', d.moon.name.toLowerCase())}
+      </div>
+
+      <div class="fishline">
+        <h3>Likely fish</h3>
+        <div class="fchips">${chips}</div>
+      </div>
+
+      <details class="more" id="more"${state.moreOpen ? ' open' : ''}>
+        <summary><span>Hour by hour, tides and local tips</span>${icon('chev', 'chev')}</summary>
+        <div class="more-body">
+          <section>
+            <h3>Why this score</h3>
+            <div class="subscores"><div>Kayak conditions <b class="tnum">${d.kayak}</b></div><div>Fishing <b class="tnum">${d.fishing}</b></div></div>
+            <ul class="reasons">${d.reasons.map((x) => `<li class="${x.type}">${x.text}</li>`).join('')}</ul>
+          </section>
+          <section>
+            <h3>Hour by hour</h3>
+            <p class="muted small">Bars show wind, the line shows gusts (kn, left axis). Waves and swell are in metres on the right axis. The shaded band is your best window.</p>
+            <div class="chart-box"><canvas id="chart"></canvas></div>
+            <div class="table-scroll" style="margin-top:14px">
+              <table class="hourly"><thead><tr><th>Time</th><th>Wind</th><th>Gust</th><th>Waves</th><th>Chop</th><th>Rain</th><th>Air</th><th>Score</th></tr></thead><tbody>${rows}</tbody></table>
+            </div>
+          </section>
+          <section>
+            <h3>All conditions</h3>
+            <div class="stats">${stats}</div>
+          </section>
+          <section>
+            <h3>Fish at ${spot.name} in ${fmtDay(d.date, { month: 'long' })}</h3>
+            <p class="muted small">Ranked by season, today's sea temperature (${r1(s.sst)} °C) and how common they are here. Bar = Jan→Dec, darker = peak.</p>
+            <div class="fish-list">${onFish.map(fishCard).join('')}</div>
+            ${offFish.length ? `<details><summary>Out of season or unlikely right now (${offFish.length})</summary><div class="fish-list" style="margin-top:10px">${offFish.map(fishCard).join('')}</div></details>` : ''}
+          </section>
+          <section>
+            <h3>Local knowledge</h3>
+            <ul class="notes">${spot.notes.map((n) => `<li>${n}</li>`).join('')}</ul>
+          </section>
+        </div>
+      </details>
     </div>`;
 
-  $('#detail').querySelectorAll('[data-spot]').forEach((b) => b.addEventListener('click', () => select(b.dataset.spot)));
-  $('#detail').querySelectorAll('[data-date]').forEach((b) => b.addEventListener('click', () => select(state.spotId, b.dataset.date)));
-  renderChart(d);
+  $('#spotPick').addEventListener('change', (e) => { if (e.target.value) select(e.target.value); });
+  $('#favBtn').addEventListener('click', () => toggleFav(spot.id));
+  $('#detail').querySelectorAll('[data-step]').forEach((b) => b.addEventListener('click', () => {
+    const next = days[idx + Number(b.dataset.step)];
+    if (next) select(state.spotId, next.date);
+  }));
+  if (chart) { chart.destroy(); chart = null; }
+  const more = $('#more');
+  if (state.moreOpen) renderChart(d);
+  more.addEventListener('toggle', () => { state.moreOpen = more.open; if (more.open && !chart) renderChart(d); });
 }
 
 // ---------- chart ----------
@@ -452,7 +643,11 @@ $('#theme').addEventListener('click', () => {
 systemDark.addEventListener?.('change', () => { if (!document.documentElement.dataset.theme) { syncThemeButton(); if (Object.keys(state.results).length) render(); } });
 syncThemeButton();
 readURL();
+state.favs = loadFavs();
+try { const a = localStorage.getItem('kf:area'); if (a === 'fav' || AREAS.includes(a)) state.area = a; } catch (_) { /* ignore */ }
+if (state.area === 'fav' && !state.favs.size) state.area = 'all';
 wireFilter();
+wirePlan();
 load();
 
 // ---------- branding ----------
