@@ -509,3 +509,6 @@ details summary { cursor: pointer; color: var(--accent); font-weight: 600; font-
 .spot-tools { flex-wrap: nowrap; }
 .pick { min-width: 0; }
 .pick select { width: 170px; max-width: 100%; }
+/* Grid children default to min-width:auto, so a wide table (weekly grid, hourly table)
+   would stretch the card and the page. Let them shrink so the table scrolls in its own box. */
+.plan > *, .spot-card > *, .more, .more-body, .more-body > section, .more-body > section > * { min-width: 0; }
